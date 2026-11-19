@@ -275,8 +275,13 @@ namespace OmegaTube.Ui
         public bool Move(int delta)
         {
             int next = FocusIndex + delta;
-            if (items.Count == 0 || next < 0 || next >= items.Count)
+            if (items.Count == 0 || next < 0)
             {
+                return false;
+            }
+            if (next >= items.Count)
+            {
+                MaybeLoadMore();   // the focus sits at the last card: the next page may still be waiting
                 return false;
             }
             EnsureCards(next);

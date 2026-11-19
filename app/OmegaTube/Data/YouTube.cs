@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using OmegaTube.Util;
 
@@ -208,6 +210,108 @@ namespace OmegaTube.Data
         public static Task<string> Rate(string videoId, string rating) =>
             Task.Run(() => Json.Str(Call(NativeCore.YtRate(videoId, rating)), "error", null));
 
+        public class CaptionList
+        {
+            public List<CaptionTrack> Tracks = new List<CaptionTrack>();
+            public string Error;
+        }
+
+        // The video's subtitle tracks (a player request under the hood; ~1 s).
+        public static Task<CaptionList> CaptionTracks(string videoId) => Task.Run(() =>
+        {
+            object root = Call(NativeCore.YtCaptionTracks(videoId));
+            var list = new CaptionList { Error = Json.Str(root, "error", null) };
+            foreach (object o in Json.Arr(root, "captions") ?? new List<object>())
+            {
+                list.Tracks.Add(new CaptionTrack
+                {
+                    Url = Json.Str(o, "url"), Lang = Json.Str(o, "lang"), Name = Json.Str(o, "name"),
+                    Auto = Json.Bool(o, "auto"),
+                });
+            }
+            return list;
+        });
+
+        // A transcript summary through OpenRouter (model "openrouter/free" routes to free models only).
+        public static async Task<(string Text, string Error)> Summarize(string videoId, string key, string model)
+        {
+            CaptionList caps = await CaptionTracks(videoId);
+            if (caps.Error != null)
+            {
+                return (null, caps.Error);
+            }
+            CaptionTrack track = null;
+            foreach (CaptionTrack t in caps.Tracks)
+            {
+                if (!string.IsNullOrEmpty(t.Url) && (track == null || !t.Auto))
+                {
+                    track = t;   // prefer a human track over the automatic one
+                }
+            }
+            if (track == null)
+            {
+                return (null, "No captions for this video");
+            }
+            List<CaptionCue> cues = await Captions(track.Url, "");
+            var sb = new StringBuilder();
+            foreach (CaptionCue cue in cues)
+            {
+                sb.Append(cue.Text).Append(' ');
+                if (sb.Length > 14000)
+                {
+                    break;
+                }
+            }
+            if (sb.Length < 40)
+            {
+                return (null, "Empty transcript");
+            }
+            string language = I18n.Lang == "fr" ? "French" : I18n.Lang == "es" ? "Spanish" : "Turkish";
+            string body = Json.Write(new Dictionary<string, object>
+            {
+                ["model"] = string.IsNullOrEmpty(model) ? "openrouter/free" : model,
+                ["messages"] = new List<object>
+                {
+                    new Dictionary<string, object>
+                    {
+                        ["role"] = "system",
+                        ["content"] = "You summarize video transcripts. Answer with 5-8 short bullet points in " + language + ". No preamble.",
+                    },
+                    new Dictionary<string, object> { ["role"] = "user", ["content"] = sb.ToString() },
+                },
+            });
+            using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(90) })
+            {
+                http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + key);
+                http.DefaultRequestHeaders.TryAddWithoutValidation("HTTP-Referer", "https://github.com/omegatube");
+                http.DefaultRequestHeaders.TryAddWithoutValidation("X-Title", "OmegaTube");
+                HttpResponseMessage res = await http.PostAsync("https://openrouter.ai/api/v1/chat/completions",
+                                                               new StringContent(body, Encoding.UTF8, "application/json"));
+                string text = await res.Content.ReadAsStringAsync();
+                try
+                {
+                    object root = Json.Parse(text);
+                    List<object> choices = Json.Arr(root, "choices");
+                    string content = choices != null && choices.Count > 0
+                        ? Json.Str(Json.Obj(choices[0], "message"), "content", null)
+                        : null;
+                    if (content == null)
+                    {
+                        return (null, "HTTP " + (int)res.StatusCode + ": " + (text.Length > 300 ? text.Substring(0, 300) : text));
+                    }
+                    return (content, null);
+                }
+                catch (Exception)
+                {
+                    return (null, "HTTP " + (int)res.StatusCode);
+                }
+            }
+        }
+
+        // Signed in: add / remove a video in an account playlist ("WL" = Watch Later).
+        public static Task<string> PlaylistEdit(string playlistId, string videoId, bool add) =>
+            Task.Run(() => Json.Str(Call(NativeCore.YtPlaylistEdit(playlistId, videoId, add)), "error", null));
+
         public static Task<string> Subscribe(string channelId, bool subscribe) =>
             Task.Run(() => Json.Str(Call(NativeCore.YtSubscribe(channelId, subscribe)), "error", null));
 
@@ -277,11 +381,61 @@ namespace OmegaTube.Data
             return Task.Run(() => ToPage(Call(NativeCore.YtRelated(videoId))));
         }
 
+        // The signed-in home as one flat list: the TV home answers with shelves (top-level items are empty), so
+        // their videos are concatenated here; the page continuation still brings more.
+        public static async Task<FeedPage> Home(string continuation = "")
+        {
+            FeedPage page = await Browse("FEwhat_to_watch", continuation ?? "");
+            if (page.Error == null && page.Items.Count == 0 && page.Shelves.Count > 0)
+            {
+                foreach (Shelf shelf in page.Shelves)
+                {
+                    page.Items.AddRange(shelf.Items);
+                }
+            }
+            return page;
+        }
+
         // Signed-in feeds: FEwhat_to_watch (recommended), FEsubscriptions, FEhistory.
         public static Task<FeedPage> Browse(string browseId, string continuation = "")
         {
             return Task.Run(() => ToPage(Call(NativeCore.YtBrowse(browseId, continuation ?? ""))));
         }
+
+        // Account lists (Watch Later, Liked videos, Liked Music): private, and the "next" endpoint refuses them —
+        // the list page itself is the queue.
+        public static bool IsAccountList(string playlistId) => playlistId == "WL" || playlistId == "LL" || playlistId == "LM";
+
+        // What follows videoId in an account list: the list page is paged through (a few pages) until the video
+        // is found; the rows after it (at most 25) are the queue.
+        public static Task<FeedPage> NextInList(string videoId, string playlistId) => Task.Run(() =>
+        {
+            string continuation = "";
+            for (int page = 0; page < 4; page++)
+            {
+                FeedPage p = PlaylistPage(playlistId, continuation).GetAwaiter().GetResult();
+                if (p.Error != null)
+                {
+                    return p;
+                }
+                int idx = p.Items.FindIndex(i => i.Id == videoId);
+                if (idx >= 0)
+                {
+                    var next = new FeedPage { Title = p.Title, Continuation = "" };
+                    for (int k = idx + 1; k < p.Items.Count && next.Items.Count < 25; k++)
+                    {
+                        next.Items.Add(p.Items[k]);
+                    }
+                    return next;
+                }
+                if (string.IsNullOrEmpty(p.Continuation))
+                {
+                    break;
+                }
+                continuation = p.Continuation;
+            }
+            return new FeedPage();
+        });
 
         private static FeedPage ToPage(object root)
         {

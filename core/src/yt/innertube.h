@@ -135,12 +135,12 @@ public:
     // Video search (WEB client). Pass the previous Feed::continuation to get the next page.
     bool search(const std::string& query, const std::string& continuation, Feed& out, std::string& error);
     // The videos after video_id in a playlist or mix (WEB "next" endpoint with playlistId). A mix is endless:
-    // asking again from a later video continues it.
-    bool playlist(const std::string& video_id, const std::string& playlist_id, Feed& out, std::string& title,
-                  std::string& error);
+    // asking again from a later video continues it. With an access token private lists (Watch Later, Liked) resolve.
+    bool playlist(const std::string& video_id, const std::string& playlist_id, const std::string& access_token,
+                  Feed& out, std::string& title, std::string& error);
     // A whole playlist (WEB browse VL<id>), in order, paged; the first page also gives its title.
-    bool playlist_page(const std::string& playlist_id, const std::string& continuation, Feed& out,
-                       std::string& title, std::string& error);
+    bool playlist_page(const std::string& playlist_id, const std::string& continuation, const std::string& access_token,
+                       Feed& out, std::string& title, std::string& error);
     // Related videos of a watch page, for the player's suggestions row: with an access token the account's
     // suggestions (TV "next"), else (or if that fails) the anonymous WEB "next" ones.
     bool related(const std::string& video_id, const std::string& access_token, Feed& out, std::string& error);
@@ -203,6 +203,8 @@ bool fetch_captions(const std::string& url, const std::string& translate_to, std
                     std::string& error);
 
 // Like / dislike / neutral ("like", "dislike", "none") and (un)subscribe, as the signed-in account (TV client).
+bool playlist_edit(const std::string& playlist_id, const std::string& video_id, bool add,
+                   const std::string& access_token, std::string& error);
 bool rate_video(const std::string& video_id, const std::string& rating, const std::string& access_token,
                 std::string& error);
 bool set_subscribed(const std::string& channel_id, bool subscribe, const std::string& access_token, std::string& error);

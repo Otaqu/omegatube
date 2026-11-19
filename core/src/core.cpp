@@ -580,8 +580,9 @@ char* omega_yt_browse(const char* browse_id, const char* continuation) {
 char* omega_yt_playlist(const char* video_id, const char* playlist_id) {
     omega::yt::Feed feed;
     std::string title, error;
-    if (!omega::yt::shared_client().playlist(video_id ? video_id : "", playlist_id ? playlist_id : "", feed, title,
-                                             error))
+    std::string token = omega::yt::shared_auth().access_token(error);  // empty when signed out
+    if (!omega::yt::shared_client().playlist(video_id ? video_id : "", playlist_id ? playlist_id : "", token, feed,
+                                             title, error))
         return to_c_json({{"error", error}});
     nlohmann::json j = feed_json(feed);
     j["title"] = title;
@@ -591,8 +592,9 @@ char* omega_yt_playlist(const char* video_id, const char* playlist_id) {
 char* omega_yt_playlist_page(const char* playlist_id, const char* continuation) {
     omega::yt::Feed feed;
     std::string title, error;
+    std::string token = omega::yt::shared_auth().access_token(error);  // empty when signed out
     if (!omega::yt::shared_client().playlist_page(playlist_id ? playlist_id : "", continuation ? continuation : "",
-                                                  feed, title, error))
+                                                  token, feed, title, error))
         return to_c_json({{"error", error}});
     nlohmann::json j = feed_json(feed);
     j["title"] = title;
@@ -653,6 +655,24 @@ char* omega_yt_subscribe(const char* channel_id, int subscribe) {
     std::string id = channel_id ? channel_id : "";
     return account_action([&](const std::string& token, std::string& error) {
         return omega::yt::set_subscribed(id, subscribe != 0, token, error);
+    });
+}
+
+char* omega_yt_caption_tracks(const char* video_id) {
+    omega::yt::Client client;
+    omega::yt::VideoInfo info;
+    std::string error;
+    if (!client.player(video_id ? video_id : "", info, error)) return to_c_json({{"error", error}});
+    nlohmann::json tracks = nlohmann::json::array();
+    for (const auto& t : info.captions)
+        tracks.push_back({{"url", t.url}, {"lang", t.lang}, {"name", t.name}, {"auto", t.automatic}});
+    return to_c_json({{"title", info.title}, {"captions", tracks}});
+}
+
+char* omega_yt_playlist_edit(const char* playlist_id, const char* video_id, int add) {
+    std::string pid = playlist_id ? playlist_id : "", vid = video_id ? video_id : "";
+    return account_action([&](const std::string& token, std::string& error) {
+        return omega::yt::playlist_edit(pid, vid, add != 0, token, error);
     });
 }
 

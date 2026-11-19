@@ -845,9 +845,12 @@ namespace OmegaTube.Ui
         private async Task LoadSuggestions()
         {
             // In a playlist / mix the row is what comes next in it (and Next / the end of the video plays its first).
+            // Account lists (Watch Later, Liked, Liked Music) have no "next" endpoint: the list page is the queue.
             suggestions = InList
                 ? new FeedRow(item.Kind == "mix" || item.PlaylistId.StartsWith("RD") ? T("Up next in the mix") : T("Up next in the playlist"),
-                              c => YouTube.Playlist(item.Id, item.PlaylistId), 1920 - 40)
+                              c => YouTube.IsAccountList(item.PlaylistId)
+                                  ? YouTube.NextInList(item.Id, item.PlaylistId)
+                                  : YouTube.Playlist(item.Id, item.PlaylistId), 1920 - 40)
                 : new FeedRow(T("Suggested videos"), c => YouTube.Related(item.Id), 1920 - 40);
             // Set on the row itself: an initializer on the conditional above would apply to its last branch only.
             suggestions.Position = new Position(40, SuggestionsY);
@@ -1723,8 +1726,11 @@ namespace OmegaTube.Ui
                             }
                             break;
                         case "Down":
-                            focus = suggestions != null && suggestions.Count > 0 ? Focus.Suggestions : Focus.Section;
-                            break;
+                            if (suggestions != null && suggestions.Count > 0)
+                            {
+                                focus = Focus.Suggestions;
+                            }
+                            break;   // no description / comments block below the buttons
                         case "Up":
                             focus = live ? Focus.Actions : Focus.Timeline;
                             break;
@@ -1756,8 +1762,7 @@ namespace OmegaTube.Ui
                             }
                             return true;
                         case "Down":
-                            focus = Focus.Section;
-                            break;
+                            break;   // no description / comments block
                         case "Up":
                         case "XF86Back":
                         case "Escape":

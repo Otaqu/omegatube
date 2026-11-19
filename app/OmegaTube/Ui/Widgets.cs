@@ -226,6 +226,8 @@ namespace OmegaTube.Ui
             private readonly ImageView icon;
             private readonly View glassLit;       // Glorious: brighter glass while focused
 
+            public void SetText(string text) => label.Text = text;
+
             public PillButton(string text, string iconName, int width, int height = 76)
             {
                 Size = new Size(width, height);

@@ -8,3 +8,6 @@ app/OmegaTube/res/dev.json
 *.pri
 auth.json
 omegatube-auth.json
+
+# local build secrets (API keys): never commit
+app/OmegaTube/Config/Secrets.cs

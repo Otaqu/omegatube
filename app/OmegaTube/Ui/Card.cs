@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OmegaTube.Data;
+using OmegaTube.Util;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
 using static OmegaTube.I18n;
@@ -174,7 +175,19 @@ namespace OmegaTube.Ui
 
             if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
-                Widgets.MaskedImage(thumb, Item.Thumbnail, Theme.Image("round_mask"));
+                // Disk-cached thumbnails load instantly; a miss paints the plain URL and upgrades when the
+                // background download (ThumbCache) lands.
+                string cached = ThumbCache.Get(Item.Thumbnail);
+                Widgets.MaskedImage(thumb, cached ?? Item.Thumbnail, Theme.Image("round_mask"));
+                if (cached == null && subscribedThumb != Item.Thumbnail)
+                {
+                    if (subscribedThumb != null)
+                    {
+                        ThumbCache.Ready -= OnThumbReady;
+                    }
+                    subscribedThumb = Item.Thumbnail;
+                    ThumbCache.Ready += OnThumbReady;
+                }
             }
         }
 
@@ -438,9 +451,39 @@ namespace OmegaTube.Ui
             }
         }
 
+        private string subscribedThumb;
+
+        private void OnThumbReady(string url)
+        {
+            if (url != subscribedThumb)
+            {
+                return;
+            }
+            UiGuard.Post(() =>
+            {
+                try
+                {
+                    string p = ThumbCache.Get(url);
+                    if (p != null)
+                    {
+                        Widgets.MaskedImage(thumb, p, Theme.Image("round_mask"));
+                    }
+                }
+                catch
+                {
+                    // the card went away while the download finished
+                }
+            });
+        }
+
         // The focus outline is a child: a card going away must not take the shared preview ring (Hero's) with it.
         protected override void Dispose(DisposeTypes type)
         {
+            if (type == DisposeTypes.Explicit)
+            {
+                ThumbCache.Ready -= OnThumbReady;
+                subscribedThumb = null;
+            }
             if (type == DisposeTypes.Explicit)
             {
                 foreach (View child in new List<View>(Children))

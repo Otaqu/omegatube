@@ -129,6 +129,10 @@ OMEGA_API char* omega_yt_details(const char* video_id);
 // As the signed-in account: rating "like" | "dislike" | "none"; (un)subscribe. {"ok":true} or {"error"}.
 OMEGA_API char* omega_yt_rate(const char* video_id, const char* rating);
 OMEGA_API char* omega_yt_subscribe(const char* channel_id, int subscribe);
+// As the signed-in account: add / remove a video in a playlist ("WL" = Watch Later). {"ok":true} or {"error"}.
+OMEGA_API char* omega_yt_playlist_edit(const char* playlist_id, const char* video_id, int add);
+// The video's subtitle tracks (player request): {"title", "captions":[{url,lang,name,auto}]} or {"error"}.
+OMEGA_API char* omega_yt_caption_tracks(const char* video_id);
 // A channel's videos (newest first): same JSON as search plus "title","avatar","subscribers" (first page).
 OMEGA_API char* omega_yt_channel(const char* channel_id, const char* continuation);
 // Comments of a video, continuation NULL/empty = first page (top comments), or an item's replyToken for its replies:

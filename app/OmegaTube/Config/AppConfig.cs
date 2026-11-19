@@ -115,6 +115,8 @@ namespace OmegaTube.Config
         public string Language = "en";   // InnerTube hl
         public string Region = "US";     // InnerTube gl
         public bool CheckUpdates = true;
+        public string SummaryKey = Secrets.SummaryKey;   // OpenRouter API key for the card menu's summary
+        public string SummaryModel = "openrouter/free";   // free models only
         public bool SponsorBlockEnabled = true;
         public Dictionary<string, SkipMode> SkipModes = new Dictionary<string, SkipMode>();
 
@@ -245,6 +247,8 @@ namespace OmegaTube.Config
             Language = Json.Str(root, "language", Language);
             Region = Json.Str(root, "region", Region);
             CheckUpdates = Json.Bool(root, "checkUpdates", CheckUpdates);
+            SummaryKey = Json.Str(root, "summaryKey", SummaryKey);
+            SummaryModel = Json.Str(root, "summaryModel", SummaryModel);
             object sb = Json.Obj(root, "sponsorBlock");
             if (sb != null)
             {
@@ -302,6 +306,8 @@ namespace OmegaTube.Config
                 ["language"] = Language,
                 ["region"] = Region,
                 ["checkUpdates"] = CheckUpdates,
+                ["summaryKey"] = SummaryKey,
+                ["summaryModel"] = SummaryModel,
                 ["homeRows"] = rows,
                 ["sponsorBlock"] = new Dictionary<string, object> { ["enabled"] = SponsorBlockEnabled, ["categories"] = cats },
                 ["player"] = new Dictionary<string, object>

@@ -37,18 +37,18 @@ namespace OmegaTube.Ui
         public static bool Glorious;
 
         public const float TitleSize = 34f;
-        public const float BodySize = 24f;
-        public const float SmallSize = 19f;
+        public const float BodySize = 22f;
+        public const float SmallSize = 17f;
 
         public const int RailWidth = 110;          // collapsed: icons only
         public const int RailExpandedWidth = 330;  // focused: icons + labels
-        public const int CardWidth = 352;
-        public const int CardGap = 30;
-        public const int CardInfoHeight = 104;     // title (2 lines) + channel line
+        public const int CardWidth = 268;
+        public const int CardGap = 16;
+        public const int CardInfoHeight = 84;      // title (2 lines) + channel line
         public const int CardRadius = 14;          // soft corners (no sharp edges)
         public const float FocusScale = 1.1f;
         public const int FocusMargin = 30;         // room for the focused card's scale-up
-        public const int RowHeight = 470;
+        public const int RowHeight = 344;
         public const int PanelRadius = 20;
 
         // Glorious home geometry.
@@ -57,16 +57,16 @@ namespace OmegaTube.Ui
         public const int GloriousInset = 75;    // rows start here, clearing the nav; earlier cards slide under it
         public const int GloriousRowsTop = 120;    // the rows' list starts here on screen; the hero fills the band above
         public const int HeroFirstRowTop = 500;    // first row's top inside that list: below the hero's text block
-        public const int BigCardWidth = 317;       // featured first row (thumbnail-only, small to show more backdrop)
-        public const int BigCardGap = 34;          // more spacing between featured cards
+        public const int BigCardWidth = 248;       // featured first row (thumbnail-only, small to show more backdrop)
+        public const int BigCardGap = 18;          // more spacing between featured cards
         public const int GloriousRowHeight = RowHeight - 96;   // rows 2+: half the empty space under the thumbnails
         // Glorious grid rows (the videos after the featured first row of a category): five columns, loaded downward.
-        public const int GridColumns = 5;
-        public const int GridCardWidth = 330;      // 5 cards + 4 gaps fit between the left inset and the right margin
-        public const int GridGap = 30;
-        public const int GridRowHeight = 300;      // thumbnail + the line under it + room for the focus zoom
+        public const int GridColumns = 6;
+        public const int GridCardWidth = 268;      // 6 cards + 5 gaps fit between the left inset and the right margin
+        public const int GridGap = 16;
+        public const int GridRowHeight = 258;      // thumbnail + the line under it + room for the focus zoom
         public const int GridTitledRowHeight = 360;   // the same with a heading above
-        public const int BigRowHeight = 340;       // tall so the next row's heading clears the featured thumbnails
+        public const int BigRowHeight = 300;       // tall so the next row's heading clears the featured thumbnails
 
         public static int ThumbHeight(int cardWidth) => cardWidth * 9 / 16;
         public static int CardHeight(int cardWidth) => ThumbHeight(cardWidth) + CardInfoHeight;

@@ -16,11 +16,11 @@ namespace OmegaTube.Ui
     // as a horizontally scrolling row; Up from the first grid row enters it, Down leaves it.
     public class FeedGrid : View, IFeedView
     {
-        private const int Columns = 4;
+        private const int Columns = 6;
         private const int GapX = 34, GapY = 40;
         private const int Pad = Theme.FocusMargin;   // room for the focused card's scale-up
         private const int HeadingH = 56;              // section title above the highlights row and the grid
-        private const int RowsBefore = 2, RowsAfter = 4;   // rows kept shown around the focused one
+        private const int RowsBefore = 3, RowsAfter = 6;   // rows kept shown around the focused one
         private const int PrefetchRows = 5;           // next page asked when the focus is this close to the end
 
         public int Count => items.Count + highlights.Count;
@@ -41,6 +41,8 @@ namespace OmegaTube.Ui
         private readonly List<Card> highlights = new List<Card>();
         private Func<string, Task<FeedPage>> loader;
         private string continuation = "";
+        // Endless feeds: asked when the feed's own continuation runs out (home: more like the last video).
+        public Func<string, Task<FeedPage>> More;
         private string cacheKey;
         private bool fresh, loading, focused;
         private int focus;
@@ -308,7 +310,26 @@ namespace OmegaTube.Ui
             }
             loading = true;
             int gen = generation;
-            FeedPage page = await loader(fresh ? continuation : "");
+            FeedPage page;
+            if (!fresh || !string.IsNullOrEmpty(continuation))
+            {
+                page = await loader(fresh ? continuation : "");
+            }
+            else if (More != null)
+            {
+                page = await More(items.Count > 0 ? items[items.Count - 1].Id : "");
+                if (page == null || page.Items.Count == 0)
+                {
+                    More = null;   // nothing more to suggest: stop asking
+                    loading = false;
+                    return;
+                }
+            }
+            else
+            {
+                loading = false;
+                return;
+            }
             if (gen != generation || disposed)
             {
                 return;  // the grid switched to another feed meanwhile
@@ -348,7 +369,8 @@ namespace OmegaTube.Ui
         // Asks the next page early, while the user still has rows to look at.
         private void MaybePrefetch()
         {
-            if (fresh && !loading && !string.IsNullOrEmpty(continuation) && focus / Columns >= (items.Count - 1) / Columns - PrefetchRows)
+            if (fresh && !loading && (!string.IsNullOrEmpty(continuation) || More != null) &&
+                focus / Columns >= (items.Count - 1) / Columns - PrefetchRows)
             {
                 UiGuard.Fire("FeedGrid.Load", Load);
             }

@@ -135,6 +135,7 @@ namespace OmegaTube.Ui
             AddCategory("SponsorBlock", "shield", T("Skipping sponsors and other segments reported by the community"), BuildSponsorBlock);
             AddCategory(T("Menu"), "view_list", T("Sidebar sections (add some from Search)"), BuildMenu);
             AddCategory(T("General"), "language", T("App language, content language and updates"), BuildGeneral);
+            AddCategory(T("AI summary"), "info_outline", T("A transcript summary in the card menu, through OpenRouter"), BuildSummary);
             aboutCategory = categories.Count;
             AddCategory(T("About"), "info_outline", T("Version, license and credits"), BuildAbout);
             ShowCategory(startCategory);
@@ -411,6 +412,32 @@ namespace OmegaTube.Ui
                          }));
             l.Add(Toggle(T("Updates"), T("Report a new version at startup"),
                          () => App.Config.CheckUpdates, v => App.Config.CheckUpdates = v));
+        }
+
+        private void BuildSummary(List<Row> l)
+        {
+            l.Add(new Row
+            {
+                Title = T("OpenRouter API key"),
+                Hint = T("openrouter.ai/keys — the key stays on this TV"),
+                Value = () => string.IsNullOrEmpty(App.Config.SummaryKey) ? T("not set") : T("set"),
+                Activate = () => App.Push(new KeyEntryScreen(App, T("OpenRouter API key"), App.Config.SummaryKey, v =>
+                {
+                    App.Config.SummaryKey = v;
+                    App.Config.Save();
+                })),
+            });
+            l.Add(new Row
+            {
+                Title = T("Summary model"),
+                Hint = T("openrouter/free routes to free models only"),
+                Value = () => App.Config.SummaryModel,
+                Activate = () => App.Push(new KeyEntryScreen(App, T("Summary model"), App.Config.SummaryModel, v =>
+                {
+                    App.Config.SummaryModel = string.IsNullOrEmpty(v) ? "openrouter/free" : v;
+                    App.Config.Save();
+                })),
+            });
         }
 
         private void BuildAbout(List<Row> l)

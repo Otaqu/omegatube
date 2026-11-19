@@ -9,11 +9,12 @@ namespace OmegaTube.Ui
     // A playlist: its name and a "Play all" button above a grid of its videos, in order. The picked video
     // plays within the playlist (Next and the end of the video continue with the following ones).
     // Up from the grid's first row reaches the button.
-    public class PlaylistScreen : Screen
+    public class PlaylistScreen : Screen, IHoldActions
     {
         private const int GridTop = 210;
 
         private readonly VideoItem list;
+        private readonly bool accountList;   // Watch Later / Liked: the watch endpoint refuses them as a queue
         private readonly TextLabel titleLabel, countLabel;
         private readonly Widgets.PillButton playAll;
         private readonly FeedGrid grid;
@@ -23,6 +24,7 @@ namespace OmegaTube.Ui
         public PlaylistScreen(App app, VideoItem list) : base(app)
         {
             this.list = list;
+            accountList = list.PlaylistId == "WL" || list.PlaylistId == "LL" || list.PlaylistId == "LM";
             Root.BackgroundColor = Theme.Background;
 
             var icon = Widgets.Icon("view_list", 64);
@@ -38,6 +40,11 @@ namespace OmegaTube.Ui
             playAll = new Widgets.PillButton(T("Play all"), "play", 300, 76);
             playAll.Position = new Position(1540, 72);
             Root.Add(playAll);
+            if (accountList)
+            {
+                playAll.Hide();
+                onButton = false;
+            }
 
             grid = new FeedGrid(1920 - 60, 1080 - GridTop) { Position = new Position(30, GridTop) };
             Root.Add(grid);
@@ -110,12 +117,36 @@ namespace OmegaTube.Ui
                 }
                 return true;
             }
-            if (!grid.Move(key) && key == "Up")
+            if (!grid.Move(key) && key == "Up" && !accountList)
             {
                 onButton = true;
                 RefreshFocus();
             }
             return true;
+        }
+
+        // IHoldActions: long-press OK on a card of the list.
+        public VideoItem FocusedItem => onButton ? null : grid.FocusedItem;
+
+        public void ShowActionsForFocused()
+        {
+            VideoItem item = FocusedItem;
+            if (item != null)
+            {
+                bool account = YouTube.IsAccountList(list.PlaylistId);
+                App.ShowActions(item, account ? list.PlaylistId : null, RemoveLabel(list.PlaylistId));
+            }
+        }
+
+        private static string RemoveLabel(string playlistId)
+        {
+            switch (playlistId)
+            {
+                case "WL": return T("Remove from Watch Later");
+                case "LL": return T("Remove from Liked videos");
+                case "LM": return T("Remove from Liked Music");
+                default: return T("Remove from list");
+            }
         }
     }
 }

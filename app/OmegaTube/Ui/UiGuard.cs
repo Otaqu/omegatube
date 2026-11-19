@@ -24,6 +24,15 @@ namespace OmegaTube.Ui
             uiThread = Thread.CurrentThread.ManagedThreadId;
         }
 
+        // Hands work from a background thread to the UI thread (NUI calls must happen there).
+        public static void Post(Action action)
+        {
+            if (ui != null)
+            {
+                ui.Post(_ => Run("UiGuard.Post", action), null);
+            }
+        }
+
         public static void Run(string where, Action action)
         {
             try

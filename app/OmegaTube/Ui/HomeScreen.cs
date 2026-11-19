@@ -17,7 +17,7 @@ namespace OmegaTube.Ui
     // Switching entries must not stall the remote: each entry keeps its own view once built (switching is a
     // show / hide; Home and Subscriptions refresh in the background each time, other feeds once older than
     // StaleAfter), and while the remote rests the entries not opened yet are built ahead (Prewarm).
-    public class HomeScreen : Screen
+    public class HomeScreen : Screen, IHoldActions
     {
         private class Section
         {
@@ -44,6 +44,7 @@ namespace OmegaTube.Ui
         private readonly Dictionary<string, DateTime> loadedAt = new Dictionary<string, DateTime>();
         private readonly View feedHost;
         private View feedView;     // feed on display, if any
+        private DateTime lastUp;   // two quick Ups on the top row: refresh
         private readonly View embedHost;
         private readonly View rowFadeLeft, rowFadeRight, rowFadeBottom;   // Glorious: edge fades over the rows band
         private Hero hero;          // Glorious only, built on first use (Omega never pays for it)
@@ -110,6 +111,17 @@ namespace OmegaTube.Ui
         }
 
         private IFeedView Feed => feedView as IFeedView;
+
+        public VideoItem FocusedItem => Feed?.FocusedItem;
+
+        public void ShowActionsForFocused()
+        {
+            VideoItem item = FocusedItem;
+            if (item != null)
+            {
+                App.ShowActions(item);
+            }
+        }
 
         // Something to look at: rows of the open feed, or a hosted screen (the launch screen waits for this).
         public bool HasContent => Feed == null || Feed.Count > 0;
@@ -228,15 +240,14 @@ namespace OmegaTube.Ui
             {
                 new Section
                 {
-                    Key = "home", Title = T("Home"), Icon = "home", CacheKey = "home-shelves", Shelves = true, RefreshOnOpen = true,
-                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Browse("FEwhat_to_watch", c)) : null,
+                    Key = "home", Title = T("Home"), Icon = "home", CacheKey = "home-shelves",
+                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Home(c)) : null,
                     EmptyText = T("Sign in to your account (Account menu) to see your recommendations, or use Search and the menu sections."),
                 },
                 new Section { Key = "search", Title = T("Search"), Icon = "search", Embed = () => new SearchScreen(App) },
                 new Section
                 {
                     Key = "subscriptions", Title = T("Subscriptions"), Icon = "subscriptions", CacheKey = "subscriptions",
-                    RefreshOnOpen = true,
                     Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Browse("FEsubscriptions", c)) : null,
                     EmptyText = T("Sign in to your account (Account menu) to see the videos of your subscriptions."),
                 },
@@ -246,6 +257,7 @@ namespace OmegaTube.Ui
                     Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Browse("FEhistory", c)) : null,
                     EmptyText = T("Sign in to your account (Account menu) to see your history."),
                 },
+                new Section { Key = "library", Title = T("Library"), Icon = "view_list", Embed = () => new LibraryScreen(App) },
             };
             foreach (HomeRow row in App.Config.HomeRows)
             {
@@ -449,6 +461,10 @@ namespace OmegaTube.Ui
             {
                 int cx = Glorious ? Theme.GloriousInset - 30 : ContentX;   // the folded nav leaves the left edge free
                 var grid = new FeedGrid(1920 - cx, 1080 - gridTop) { Position = new Position(cx, gridTop) };
+                if (s.Key == "home")
+                {
+                    grid.More = id => YouTube.Related(id);   // YouTube's home pages end: keep going with related
+                }
                 grid.Show(s.Loader, s.CacheKey, s.EmptyText);
                 v = grid;
             }
@@ -817,6 +833,21 @@ namespace OmegaTube.Ui
                     App.Play(item, from);
                 }
                 return true;
+            }
+            else if (key == "Up" && Feed != null && Feed.FocusedRow == 0)
+            {
+                // Two quick Ups on the top row: refresh the feed.
+                if ((DateTime.Now - lastUp).TotalMilliseconds < 800)
+                {
+                    lastUp = DateTime.MinValue;
+                    loadedAt.Clear();
+                    Feed.Refresh();
+                    App.Toast(T("Refreshing…"));
+                }
+                else
+                {
+                    lastUp = DateTime.Now;
+                }
             }
             else if (Feed != null && !Feed.Move(key) && key == "Left")
             {

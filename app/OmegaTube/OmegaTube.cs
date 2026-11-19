@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using OmegaTube.Config;
 using OmegaTube.Data;
+using OmegaTube.Util;
 using OmegaTube.Ui;
 using Tizen.NUI;
+using Tizen.NUI.BaseComponents;
 
 namespace OmegaTube
 {
@@ -11,6 +13,10 @@ namespace OmegaTube
     {
         private readonly List<Screen> stack = new List<Screen>();
         private ConfirmDialog dialog;   // open modal question: gets every key
+        private ActionMenu actionMenu;  // long-press OK menu on the home feed: gets every key while open
+
+        private View toast;
+        private Timer toastTimer;
         private Splash splash;          // launch screen: keys wait until it is gone
 
         public AppConfig Config { get; private set; }
@@ -41,6 +47,7 @@ namespace OmegaTube
                 NativeCore.Init(DirectoryInfo.Data);
                 BugReport.CoreLoaded = true;
                 LocalStore.Init(DirectoryInfo.Data);
+                ThumbCache.Init(DirectoryInfo.Data);
                 NativeCore.SetLocale(Config.Language, Config.Region);
                 EcoreWindow = GetEcoreWindow(window);
                 Home = new HomeScreen(this);
@@ -282,21 +289,145 @@ namespace OmegaTube
 
         private void HandleKey(Window.KeyEventArgs e)
         {
-            if (e.Key.State != Key.StateType.Down || stack.Count == 0 || splash != null)
+            if (stack.Count == 0 || splash != null)
             {
                 return;
             }
             string key = e.Key.KeyPressedName;
+            if (e.Key.State == Key.StateType.Up)
+            {
+                return;   // the double press decides on Down alone (many remotes send no key-up at all)
+            }
+            if (e.Key.State != Key.StateType.Down)
+            {
+                return;
+            }
             UiWork.KeyPressed();   // deferred card filling yields to navigation
             if (dialog != null)
             {
                 dialog.OnKey(key);
                 return;
             }
+            if (actionMenu != null)
+            {
+                actionMenu.OnKey(key);
+                return;
+            }
+            // OK on a card of a list / the home feed: always the actions menu ("Play" is its first entry).
+            // One press, no timers: this remote sends no key-up, so every press behaves the same.
+            if (key == "Return" && stack[stack.Count - 1] is IHoldActions hold && hold.FocusedItem != null)
+            {
+                hold.ShowActionsForFocused();
+                return;
+            }
             if (!stack[stack.Count - 1].OnKey(key) && (key == "XF86Back" || key == "Escape"))
             {
                 Pop();
             }
+        }
+
+        // Long-press OK on a card: what can be done to the video without opening it.
+        // removeFrom: playlist id ("WL", "LL", "LM") the item can be removed from, with its menu label.
+        public void ShowActions(VideoItem item, string removeFrom = null, string removeLabel = null)
+        {
+            if (actionMenu != null || item == null)
+            {
+                return;
+            }
+            var items = new List<(string, Action)>
+            {
+                // remove first: destructive actions read better at the top of a list menu
+                (I18n.T("Play"), () => Play(item)),
+                (I18n.T("Add to Watch Later"), () => UiGuard.Fire("actions.watchlater", async () =>
+                {
+                    string error = await YouTube.PlaylistEdit("WL", item.Id, true);
+                    if (error != null)
+                    {
+                        ShowError("Watch Later", new Exception(error));
+                    }
+                    else
+                    {
+                        Toast(I18n.T("Added to Watch Later"));
+                    }
+                })),
+                (I18n.T("Dislike"), () => UiGuard.Fire("actions.dislike", async () =>
+                {
+                    string error = await YouTube.Rate(item.Id, "dislike");
+                    if (error != null)
+                    {
+                        ShowError("Dislike", new Exception(error));
+                    }
+                    else
+                    {
+                        Toast(I18n.T("Disliked"));
+                    }
+                })),
+                (I18n.T("Like"), () => UiGuard.Fire("actions.like", async () =>
+                {
+                    string error = await YouTube.Rate(item.Id, "like");
+                    if (error != null)
+                    {
+                        ShowError("Like", new Exception(error));
+                    }
+                    else
+                    {
+                        Toast(I18n.T("Liked"));
+                    }
+                })),
+            };
+            if (removeFrom != null)
+            {
+                items.Insert(0, (removeLabel ?? I18n.T("Remove from list"), () => UiGuard.Fire("actions.remove", async () =>
+                {
+                    string error = await YouTube.PlaylistEdit(removeFrom, item.Id, false);
+                    if (error != null)
+                    {
+                        ShowError("Remove from list", new Exception(error));
+                    }
+                    else
+                    {
+                        Toast(I18n.T("Removed from list"));
+                    }
+                })));
+            }
+            actionMenu = new ActionMenu(item.Title ?? "", items, () =>
+            {
+                Window.Instance.Remove(actionMenu);
+                actionMenu = null;
+            });
+            Window.Instance.Add(actionMenu);
+        }
+
+        // A short message near the bottom of the screen.
+        public void Toast(string text)
+        {
+            if (toast != null)
+            {
+                Window.Instance.Remove(toast);
+                toast = null;
+            }
+            var panel = Widgets.Panel(Theme.Panel, 940, 84, 20);
+            panel.Position = new Position((1920 - 940) / 2, 940);
+            var label = Widgets.Label(text, Theme.BodySize + 2, Theme.Text, 900, 68);
+            label.Position = new Position(20, 8);
+            label.HorizontalAlignment = HorizontalAlignment.Center;
+            label.VerticalAlignment = VerticalAlignment.Center;
+            panel.Add(label);
+            toast = panel;
+            Window.Instance.Add(panel);
+            toastTimer = new Timer(2200);
+            toastTimer.Tick += (s, ev) =>
+            {
+                toastTimer.Stop();
+                toastTimer = null;
+                if (toast != null)
+                {
+                    Window.Instance.Remove(toast);
+                    toast = null;
+                }
+                return false;
+            };
+            toastTimer.Start();
         }
 
         protected override void OnResume()

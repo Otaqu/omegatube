@@ -273,6 +273,7 @@ namespace OmegaTube
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr Ip_bb(byte[] a, byte[] b);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr Ip_bbb(byte[] a, byte[] b, byte[] c);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr Ip_bi(byte[] a, int b);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr Ip_bbi(byte[] a, byte[] b, int c);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void V_b(byte[] a);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void V_bb(byte[] a, byte[] b);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int I_buf(byte[] buf, int size, int maxLines);
@@ -310,6 +311,8 @@ namespace OmegaTube
         private static Ip_bbb _previewSheet;
         private static Ip_bbb _ytPostReply, _ytCommentAction;
         private static Ip_bi _ytSubscribe;
+        private static Ip_bbi _ytPlaylistEdit;
+        private static Ip_b _ytCaptionTracks;
         private static V_b _init;
         private static V_bb _setLocale;
 
@@ -353,6 +356,8 @@ namespace OmegaTube
             _ytDetails = Fn<Ip_b>("omega_yt_details");
             _ytRate = Fn<Ip_bb>("omega_yt_rate");
             _ytSubscribe = Fn<Ip_bi>("omega_yt_subscribe");
+            _ytPlaylistEdit = Fn<Ip_bbi>("omega_yt_playlist_edit");
+            _ytCaptionTracks = Fn<Ip_b>("omega_yt_caption_tracks");
             _ytChannel = Fn<Ip_bb>("omega_yt_channel");
             _ytComments = Fn<Ip_bb>("omega_yt_comments");
             _previewSheet = Fn<Ip_bbb>("omega_preview_sheet");
@@ -406,6 +411,9 @@ namespace OmegaTube
         public static IntPtr YtDetails(string videoId) => _ytDetails(Utf8z(videoId));
         public static IntPtr YtRate(string videoId, string rating) => _ytRate(Utf8z(videoId), Utf8z(rating));
         public static IntPtr YtSubscribe(string channelId, bool subscribe) => _ytSubscribe(Utf8z(channelId), subscribe ? 1 : 0);
+        public static IntPtr YtPlaylistEdit(string playlistId, string videoId, bool add) =>
+            _ytPlaylistEdit(Utf8z(playlistId), Utf8z(videoId), add ? 1 : 0);
+        public static IntPtr YtCaptionTracks(string videoId) => _ytCaptionTracks(Utf8z(videoId));
         public static IntPtr YtComments(string videoId, string continuation) => _ytComments(Utf8z(videoId), Utf8z(continuation));
         // Animated WebP preview -> BMP sprite sheet at outPath; url "" = look it up by id (see omega_preview_sheet).
         public static IntPtr PreviewSheet(string videoId, string url, string outPath) =>

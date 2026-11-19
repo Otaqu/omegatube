@@ -674,15 +674,19 @@ bool Client::search(const std::string& query, const std::string& continuation, F
     return true;
 }
 
-bool Client::playlist(const std::string& video_id, const std::string& playlist_id, Feed& out, std::string& title,
-                      std::string& error) {
+bool Client::playlist(const std::string& video_id, const std::string& playlist_id, const std::string& access_token,
+                      Feed& out, std::string& title, std::string& error) {
     if (!ensure_visitor(error)) return false;
+    // The WEB client rejects OAuth tokens with a 400: only the account lists (Watch Later, Liked, Liked Music)
+    // take the token here; mixes and public lists are asked anonymously, as they played before.
+    const bool account_list = playlist_id == "WL" || playlist_id == "LL" || playlist_id == "LM";
     ClientDef def = client_def("search", visitor_data_, web_client_version_);
     json body = {{"context", {{"client", def.client}}}, {"videoId", video_id}, {"playlistId", playlist_id}};
     net::Request req;
     req.method = "POST";
     req.url = "https://www.youtube.com/youtubei/v1/next?prettyPrint=false";
     req.headers = client_headers(def, visitor_data_);
+    if (account_list && !access_token.empty()) req.headers.emplace_back("Authorization", "Bearer " + access_token);
     req.body = body.dump();
     net::Response res = net::fetch(req);
     if (!res.ok()) {
@@ -726,17 +730,21 @@ bool Client::playlist(const std::string& video_id, const std::string& playlist_i
     return true;
 }
 
-bool Client::playlist_page(const std::string& playlist_id, const std::string& continuation, Feed& out,
-                           std::string& title, std::string& error) {
+bool Client::playlist_page(const std::string& playlist_id, const std::string& continuation,
+                           const std::string& access_token, Feed& out, std::string& title, std::string& error) {
     if (!ensure_visitor(error)) return false;
-    ClientDef def = client_def("search", visitor_data_, web_client_version_);
+    // Signed in: private lists (Watch Later, Liked) need the account, and the WEB client rejects OAuth Bearer
+    // tokens — the TV (Cobalt) client, the one browse() uses for account pages, accepts them.
+    const bool signed_in = !access_token.empty();
+    ClientDef def = signed_in ? client_def("browse", "") : client_def("search", visitor_data_, web_client_version_);
     json body = {{"context", {{"client", def.client}}}};
     if (continuation.empty()) body["browseId"] = "VL" + playlist_id;
     else body["continuation"] = continuation;
     net::Request req;
     req.method = "POST";
     req.url = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false";
-    req.headers = client_headers(def, visitor_data_);
+    req.headers = client_headers(def, signed_in ? "" : visitor_data_);
+    if (signed_in) req.headers.emplace_back("Authorization", "Bearer " + access_token);
     req.body = body.dump();
     net::Response res = net::fetch(req);
     if (!res.ok()) {
@@ -1413,6 +1421,21 @@ bool rate_video(const std::string& video_id, const std::string& rating, const st
         return false;
     }
     OLOG("yt: %s %s ok", endpoint.c_str(), video_id.c_str());
+    return true;
+}
+
+bool playlist_edit(const std::string& playlist_id, const std::string& video_id, bool add,
+                   const std::string& access_token, std::string& error) {
+    json act = {{"action", add ? "ACTION_ADD_VIDEO" : "ACTION_REMOVE_VIDEO_BY_VIDEO_ID"},
+                {"addedVideoId", video_id},
+                {"removedVideoId", video_id}};
+    json body = {{"playlistId", playlist_id}, {"actions", json::array({act})}};
+    net::Response res = post_as_account("browse/edit_playlist", body, access_token);
+    if (!res.ok()) {
+        error = http_error("playlist edit", res);
+        return false;
+    }
+    OLOG("yt: playlist edit %s %s %s", playlist_id.c_str(), add ? "add" : "remove", video_id.c_str());
     return true;
 }
 

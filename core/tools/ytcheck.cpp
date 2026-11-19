@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
         omega::yt::Client client;
         omega::yt::Feed feed;
         std::string title, error;
-        if (!client.playlist(argv[2], argv[3], feed, title, error)) {
+        if (!client.playlist(argv[2], argv[3], "", feed, title, error)) {
             printf("playlist failed: %s\n", error.c_str());
             return 1;
         }
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
         int pages = argc > 3 ? atoi(argv[3]) : 1;
         for (int p = 0; p < pages; p++) {
             omega::yt::Feed feed;
-            if (!client.playlist_page(argv[2], cont, feed, title, error)) {
+            if (!client.playlist_page(argv[2], cont, "", feed, title, error)) {
                 printf("playlist page failed: %s\n", error.c_str());
                 return 1;
             }
