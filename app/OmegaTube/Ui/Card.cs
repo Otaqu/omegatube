@@ -19,9 +19,10 @@ namespace OmegaTube.Ui
     // Built in two steps for smooth scrolling: the constructor only makes the cheap frame (thumbnail, info box);
     // Fill() adds the texts and starts the thumbnail, when the card is about to be seen (UiWork). Parts a card may
     // never need (outline, animation layers, scrolling title) are created on first use.
-    public class Card : View
+    public class Card : View, IGridItem
     {
         public VideoItem Item { get; private set; }
+        public View View => this;
         public bool Filled { get; private set; }
         public bool Shown { get; private set; } = true;   // managed mirror of Visibility (rows show / hide far cards)
 

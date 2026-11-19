@@ -378,6 +378,14 @@ namespace OmegaTube.Ui
                          });
             style.Section = T("Interface");
             l.Add(style);
+            l.Add(Toggle(T("List layout"), T("Rows without thumbnails instead of the card grid (reopen a screen to apply)"),
+                         () => App.Config.ListLayout, v =>
+                         {
+                             App.Config.ListLayout = v;
+                             FeedGrid.ListMode = v;
+                             App.Config.Save();
+                             App.Home?.InvalidateRows();
+                         }));
             if (App.Config.UiStyle == "glorious")
             {
                 // Glorious options, shown right under the interface choice.

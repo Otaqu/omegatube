@@ -36,6 +36,8 @@ namespace OmegaTube.Ui
         private string continuation = "";
         private int focus;
         private bool loading, onShuffle;
+        private static List<VideoItem> allItems = new List<VideoItem>();
+        private static bool allLoaded, loadingAll;
 
         // Starts the list download while the user is still on the Library screen: opening Liked Music then shows
         // the songs at once instead of "Loading…" for seconds.
@@ -264,11 +266,24 @@ namespace OmegaTube.Ui
                 case "Return":
                     if (onShuffle)
                     {
-                        if (rows.Count > 0)
+                        if (allLoaded && allItems.Count > 0)
                         {
-                            int pick = new Random().Next(rows.Count);
-                            FocusRow(pick);
-                            App.Play(rows[pick].Item);
+                            VideoItem pick = allItems[new Random().Next(allItems.Count)];
+                            pick.PlaylistId = "LM";
+                            App.Play(pick);
+                        }
+                        else
+                        {
+                            if (rows.Count > 0)
+                            {
+                                int pick = new Random().Next(rows.Count);
+                                FocusRow(pick);
+                                App.Play(rows[pick].Item);
+                            }
+                            if (!loadingAll)
+                            {
+                                UiGuard.Fire("MusicListScreen.All", LoadAll);   // walk the whole list meanwhile
+                            }
                         }
                     }
                     else if (rows.Count > 0)
@@ -278,6 +293,41 @@ namespace OmegaTube.Ui
                     return true;
             }
             return false;
+        }
+
+        // Walks every page of Liked Music so Random can pick from the whole list, not the loaded page.
+        private static async Task LoadAll()
+        {
+            if (loadingAll)
+            {
+                return;
+            }
+            loadingAll = true;
+            try
+            {
+                var all = new List<VideoItem>();
+                string cont = "";
+                for (int page = 0; page < 60; page++)
+                {
+                    FeedPage p = await YouTube.PlaylistPage("LM", cont);
+                    if (p.Error != null)
+                    {
+                        break;
+                    }
+                    all.AddRange(p.Items);
+                    if (string.IsNullOrEmpty(p.Continuation))
+                    {
+                        allItems = all;
+                        allLoaded = true;
+                        break;
+                    }
+                    cont = p.Continuation;
+                }
+            }
+            finally
+            {
+                loadingAll = false;
+            }
         }
 
         // IHoldActions: long-press OK on a row.

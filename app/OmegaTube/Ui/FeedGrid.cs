@@ -17,6 +17,7 @@ namespace OmegaTube.Ui
     public class FeedGrid : View, IFeedView
     {
         private const int Columns = 6;
+        public static bool ListMode;   // Settings: rows instead of thumbnail cards
         private const int GapX = 34, GapY = 40;
         private const int Pad = Theme.FocusMargin;   // room for the focused card's scale-up
         private const int HeadingH = 56;              // section title above the highlights row and the grid
@@ -25,20 +26,20 @@ namespace OmegaTube.Ui
 
         public int Count => items.Count + highlights.Count;
         public VideoItem FocusedItem => inHighlights ? highlights[hlFocus].Item : items.Count > 0 ? items[focus] : null;
-        public int FocusedRow => inHighlights ? 0 : focus / Columns;
-        public View FocusedCardView => FocusedCard();
+        public int FocusedRow => inHighlights ? 0 : focus / columns;
+        public View FocusedCardView => FocusedCard()?.View;
         public List<VideoItem> ItemsAfterFocus(int count) =>
             inHighlights || focus + 1 >= items.Count ? new List<VideoItem>()
                          : items.GetRange(focus + 1, Math.Min(count, items.Count - focus - 1));
 
-        private readonly int cardW, rowStep, height;
+        private readonly int cardW, rowStep, height, columns;
         private readonly View content;
         private readonly View hlStrip;
         private readonly TextLabel hlHeading, gridHeading;
         private readonly TextLabel status;
         private readonly List<VideoItem> items = new List<VideoItem>();
-        private readonly List<Card> cards = new List<Card>();   // cards of items[0 .. cards.Count)
-        private readonly List<Card> highlights = new List<Card>();
+        private readonly List<IGridItem> cards = new List<IGridItem>();   // cards of items[0 .. cards.Count)
+        private readonly List<IGridItem> highlights = new List<IGridItem>();
         private Func<string, Task<FeedPage>> loader;
         private string continuation = "";
         // Endless feeds: asked when the feed's own continuation runs out (home: more like the last video).
@@ -63,8 +64,9 @@ namespace OmegaTube.Ui
             this.height = height;
             Size = new Size(width, height);
             ClippingMode = ClippingModeType.ClipChildren;
-            cardW = (width - 2 * Pad - (Columns - 1) * GapX) / Columns;
-            rowStep = Theme.CardHeight(cardW) + GapY;
+            columns = ListMode ? 1 : Columns;
+            cardW = ListMode ? width - 2 * Pad : (width - 2 * Pad - (Columns - 1) * GapX) / Columns;
+            rowStep = (ListMode ? ListRow.RowHeight : Theme.CardHeight(cardW)) + (ListMode ? 10 : GapY);
             content = new View { Position = new Position(0, Pad), Size = new Size(width, 100000) };
             Add(content);
             hlHeading = Widgets.Label(T("Most relevant"), Theme.TitleSize - 6, Theme.Text, width - 2 * Pad, HeadingH);
@@ -188,10 +190,10 @@ namespace OmegaTube.Ui
         private void ClearCards()
         {
             items.Clear();
-            foreach (Card c in cards)
+            foreach (IGridItem c in cards)
             {
-                content.Remove(c);
-                c.Dispose();
+                content.Remove(c.View);
+                c.View.Dispose();
             }
             cards.Clear();
             SetHighlights(new List<VideoItem>());
@@ -201,15 +203,15 @@ namespace OmegaTube.Ui
         // Cards of videos already shown are kept (network page after the cached one).
         private void SetHighlights(List<VideoItem> newItems)
         {
-            Dictionary<string, Card> old = ById(highlights);
+            Dictionary<string, IGridItem> old = ById(highlights);
             highlights.Clear();
             foreach (VideoItem item in newItems)
             {
-                Card card = Take(old, item) ?? new Card(item, cardW);
-                card.Position = new Position(Pad + highlights.Count * (cardW + GapX), 0);
-                if (card.GetParent() == null)
+                IGridItem card = Take(old, item) ?? MakeItem(item);
+                card.View.Position = new Position(Pad + highlights.Count * (cardW + GapX), 0);
+                if (card.View.GetParent() == null)
                 {
-                    hlStrip.Add(card);
+                    hlStrip.Add(card.View);
                 }
                 highlights.Add(card);
             }
@@ -227,42 +229,42 @@ namespace OmegaTube.Ui
         // New items in place of the current ones, keeping the cards of videos still there (and their thumbnail).
         private void ReplaceItems(List<VideoItem> newItems)
         {
-            Dictionary<string, Card> old = ById(cards);
+            Dictionary<string, IGridItem> old = ById(cards);
             int built = cards.Count;
             cards.Clear();
             items.Clear();
             items.AddRange(newItems);
             for (int i = 0; i < Math.Min(built, items.Count); i++)
             {
-                Card card = Take(old, items[i]) ?? new Card(items[i], cardW);
-                card.Position = CardPosition(i);
-                if (card.GetParent() == null)
+                IGridItem card = Take(old, items[i]) ?? MakeItem(items[i]);
+                card.View.Position = CardPosition(i);
+                if (card.View.GetParent() == null)
                 {
-                    content.Add(card);
+                    content.Add(card.View);
                 }
                 cards.Add(card);
             }
             Drop(old);
         }
 
-        private static Dictionary<string, Card> ById(List<Card> list)
+        private static Dictionary<string, IGridItem> ById(List<IGridItem> list)
         {
-            var d = new Dictionary<string, Card>();
-            foreach (Card c in list)
+            var d = new Dictionary<string, IGridItem>();
+            foreach (IGridItem c in list)
             {
-                if (d.TryGetValue(c.Item.Id ?? "", out Card twin))
+                if (d.TryGetValue(c.Item.Id ?? "", out IGridItem twin))
                 {
-                    twin.GetParent()?.Remove(twin);   // the same video twice: one card kept for reuse
-                    twin.Dispose();
+                    twin.View.GetParent()?.Remove(twin.View);   // the same video twice: one card kept for reuse
+                    twin.View.Dispose();
                 }
                 d[c.Item.Id ?? ""] = c;
             }
             return d;
         }
 
-        private static Card Take(Dictionary<string, Card> old, VideoItem item)
+        private static IGridItem Take(Dictionary<string, IGridItem> old, VideoItem item)
         {
-            if (!old.TryGetValue(item.Id ?? "", out Card card))
+            if (!old.TryGetValue(item.Id ?? "", out IGridItem card))
             {
                 return null;
             }
@@ -271,28 +273,32 @@ namespace OmegaTube.Ui
             return card;
         }
 
-        private static void Drop(Dictionary<string, Card> old)
+        private static void Drop(Dictionary<string, IGridItem> old)
         {
-            foreach (Card c in old.Values)
+            foreach (IGridItem c in old.Values)
             {
-                c.GetParent()?.Remove(c);
-                c.Dispose();
+                c.View.GetParent()?.Remove(c.View);
+                c.View.Dispose();
             }
         }
 
-        private Position CardPosition(int i) => new Position(Pad + (i % Columns) * (cardW + GapX), gridTop + (i / Columns) * rowStep);
+        private IGridItem MakeItem(VideoItem item) =>
+            ListMode ? (IGridItem)new ListRow(item, cardW) : new Card(item, cardW);
+
+        private Position CardPosition(int i) => new Position(Pad + (i % columns) * (cardW + GapX), gridTop + (i / columns) * rowStep);
 
         // Builds the (unfilled, cheap) cards up to the last row kept around the focus.
         private void EnsureCards()
         {
-            int focusRow = inHighlights ? 0 : focus / Columns;
-            int last = Math.Min(items.Count - 1, (focusRow + RowsAfter + 1) * Columns - 1);
+            int focusRow = inHighlights ? 0 : focus / columns;
+            int last = Math.Min(items.Count - 1, (focusRow + RowsAfter + 1) * columns - 1);
             while (cards.Count <= last)
             {
-                var card = new Card(items[cards.Count], cardW) { Position = CardPosition(cards.Count) };
+                IGridItem card = MakeItem(items[cards.Count]);
+                card.View.Position = CardPosition(cards.Count);
                 card.SetShown(false);   // (not Hide(): the card's managed flag must match)
                 cards.Add(card);
-                content.Add(card);
+                content.Add(card.View);
             }
         }
 
@@ -370,7 +376,7 @@ namespace OmegaTube.Ui
         private void MaybePrefetch()
         {
             if (fresh && !loading && (!string.IsNullOrEmpty(continuation) || More != null) &&
-                focus / Columns >= (items.Count - 1) / Columns - PrefetchRows)
+                focus / columns >= (items.Count - 1) / columns - PrefetchRows)
             {
                 UiGuard.Fire("FeedGrid.Load", Load);
             }
@@ -401,7 +407,7 @@ namespace OmegaTube.Ui
             FocusedCard()?.SetFocused(value);
         }
 
-        private Card FocusedCard()
+        private IGridItem FocusedCard()
         {
             if (inHighlights)
             {
@@ -412,11 +418,11 @@ namespace OmegaTube.Ui
 
         public void RefreshProgress()
         {
-            foreach (Card c in highlights)
+            foreach (IGridItem c in highlights)
             {
                 c.UpdateProgress();
             }
-            foreach (Card c in cards)
+            foreach (IGridItem c in cards)
             {
                 c.UpdateProgress();
             }
@@ -544,7 +550,7 @@ namespace OmegaTube.Ui
             EnsureCards();
             for (int i = 0; i < cards.Count; i++)
             {
-                cards[i].SetShown(NearFocus(i / Columns));
+                cards[i].SetShown(NearFocus(i / columns));
             }
             UiWork.Request(pump);
         }
@@ -566,7 +572,7 @@ namespace OmegaTube.Ui
             foreach (int d in new[] { 0, 1, -1, 2, 3, 4, -2 })
             {
                 int row = focusRow + d;
-                for (int i = Math.Max(0, row * Columns); row >= 0 && i < Math.Min(cards.Count, (row + 1) * Columns); i++)
+                for (int i = Math.Max(0, row * columns); row >= 0 && i < Math.Min(cards.Count, (row + 1) * columns); i++)
                 {
                     if (!cards[i].Filled)
                     {
