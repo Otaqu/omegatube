@@ -1,6 +1,8 @@
 #include "net/http.h"
 
 #include <netdb.h>
+#include <map>
+#include <mutex>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -217,6 +219,55 @@ private:
 
 }  // namespace
 
+namespace {
+
+// Keep-alive pool: every seek opens new RangeReaders over a new Connection; without this each seek
+// pays a fresh TCP+TLS handshake to the Googlevideo edge. Finished Connections hand their socket
+// to the next Connection for the same host instead of closing it. Idle sockets are dropped quickly
+// because the CDN closes them anyway; a dead pooled socket is retried on a fresh connection.
+struct PoolEntry {
+    std::unique_ptr<Transport> transport;
+    std::chrono::steady_clock::time_point idle_since;
+};
+std::mutex g_pool_mutex;
+std::multimap<std::string, PoolEntry> g_pool;
+constexpr int kPoolIdleSeconds = 25;
+constexpr size_t kPoolMax = 6;
+
+std::unique_ptr<Transport> pool_take(const std::string& key) {
+    std::lock_guard<std::mutex> lock(g_pool_mutex);
+    const auto now = std::chrono::steady_clock::now();
+    auto range = g_pool.equal_range(key);
+    for (auto it = range.first; it != range.second;) {
+        if (now - it->second.idle_since > std::chrono::seconds(kPoolIdleSeconds)) {
+            it = g_pool.erase(it);
+            continue;
+        }
+        auto t = std::move(it->second.transport);
+        g_pool.erase(it);
+        return t;
+    }
+    return nullptr;
+}
+
+void pool_put(const std::string& key, std::unique_ptr<Transport> t) {
+    std::lock_guard<std::mutex> lock(g_pool_mutex);
+    const auto now = std::chrono::steady_clock::now();
+    for (auto it = g_pool.begin(); it != g_pool.end();) {
+        if (now - it->second.idle_since > std::chrono::seconds(kPoolIdleSeconds)) it = g_pool.erase(it);
+        else ++it;
+    }
+    if (g_pool.size() >= kPoolMax) {
+        auto oldest = g_pool.begin();
+        for (auto it = g_pool.begin(); it != g_pool.end(); ++it)
+            if (it->second.idle_since < oldest->second.idle_since) oldest = it;
+        g_pool.erase(oldest);
+    }
+    g_pool.emplace(key, PoolEntry{std::move(t), now});
+}
+
+}  // namespace
+
 bool Url::parse(const std::string& url, Url& out) {
     size_t at;
     if (url.compare(0, 8, "https://") == 0) {
@@ -239,17 +290,28 @@ bool Url::parse(const std::string& url, Url& out) {
 }
 
 Connection::Connection() : buf_(64 * 1024) {}
-Connection::~Connection() = default;
+Connection::~Connection() { close(); }
 
 void Connection::close() {
+    if (transport_ && reusable_ && body_done_ && !host_key_.empty()) pool_put(host_key_, std::move(transport_));
     transport_.reset();
+    adopted_ = false;
     reusable_ = false;
     host_key_.clear();
     buf_pos_ = buf_len_ = 0;
 }
 
-bool Connection::connect_to(const Url& url) {
+bool Connection::connect_to(const Url& url, bool allow_pool) {
     close();
+    const std::string key = (url.tls ? "s:" : "p:") + url.host + ":" + url.port;
+    if (allow_pool) {
+        if (auto pooled = pool_take(key)) {
+            transport_ = std::move(pooled);
+            host_key_ = key;
+            adopted_ = true;
+            return true;
+        }
+    }
     int fd = connect_tcp(url.host, url.port, error_);
     if (fd < 0) return false;
     if (url.tls) {
@@ -259,7 +321,7 @@ bool Connection::connect_to(const Url& url) {
     } else {
         transport_ = std::make_unique<PlainTransport>(fd);
     }
-    host_key_ = (url.tls ? "s:" : "p:") + url.host + ":" + url.port;
+    host_key_ = key;
     return true;
 }
 
@@ -284,17 +346,20 @@ bool Connection::send(const Request& req) {
     msg += "Connection: keep-alive\r\n\r\n";
     msg += req.body;
 
-    // A kept-alive socket may have been closed by the server meanwhile: retry once on a fresh one.
+    // A kept-alive or pooled socket may have been closed by the server meanwhile: retry once on a fresh one.
     for (int attempt = 0; attempt < 2; ++attempt) {
         bool fresh = false;
         if (!transport_ || !reusable_ || key != host_key_) {
-            if (!connect_to(url)) return false;
+            if (!connect_to(url, attempt == 0)) return false;
             fresh = true;
         }
+        const bool adopted = adopted_;
+        adopted_ = false;
         buf_pos_ = buf_len_ = 0;
         if (transport_->send(msg.data(), msg.size()) == static_cast<long>(msg.size()) && read_headers()) return true;
+        reusable_ = false;   // this socket just failed: never pool it
         close();
-        if (fresh) {
+        if (fresh && !adopted) {
             if (error_.empty()) error_ = "connection failed";
             return false;
         }
@@ -313,6 +378,7 @@ size_t Connection::raw_read(void* dst, size_t n) {
     long r = transport_->recv(dst, n);
     if (r < 0) {
         error_ = "recv error " + std::to_string(r);
+        reusable_ = false;   // broken socket: never pool it
         return 0;
     }
     return static_cast<size_t>(r);

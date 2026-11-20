@@ -313,6 +313,10 @@ bool Player::seek(int64_t ms) {
     feed_from_ms_ = target;
     eos_ = false;
     seek_pending_ = true;
+    // A seek should resume as soon as a shot buffer is in, not wait for the full 2 s used after a stall.
+    resume_target_ms_ = 700;
+    seek_t0_ns_ = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
+    seek_log_pending_ = true;
     position_ms_ = target;
     stall_grace_until_ms_ = ms_since(started_at_) + 3000;
     int rc = api_->seek(handle_, static_cast<uint64_t>(target));
@@ -446,6 +450,10 @@ void Player::feed_loop(Track& t) {
             break;
         }
         t.submitted_ms = s.pts_ms;
+        if (seek_log_pending_.exchange(false)) {
+            int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
+            OLOG("seek: packets flowing again after %lld ms", static_cast<long long>((now_ns - seek_t0_ns_.load()) / 1000000));
+        }
     }
 }
 
@@ -497,7 +505,8 @@ void Player::control_loop() {
 // does the progress bar) and carry on once both have kResumeMs again. The hold gives up after kMaxHoldMs and tries
 // anyway, so a stuck connection never leaves the player held for ever.
 void Player::update_rebuffering() {
-    constexpr int64_t kStarveMs = 200, kResumeMs = 2000, kMaxHoldMs = 10000, kStartGraceMs = 1500;
+    constexpr int64_t kStarveMs = 200, kMaxHoldMs = 10000, kStartGraceMs = 1500;
+    const int64_t kResumeMs = resume_target_ms_.load();   // 2 s normally; shorter right after a seek
     if (paused_ || eos_ || seek_pending_ || !prepared_) return;
     const auto now = Clock::now();
     Track* tracks[] = {cfg_.use_video ? &video_ : nullptr, cfg_.use_audio ? &audio_ : nullptr};
@@ -522,6 +531,7 @@ void Player::update_rebuffering() {
     const int64_t held = std::chrono::duration_cast<std::chrono::milliseconds>(now - rebuffer_since_).count();
     if (!ready && held < kMaxHoldMs) return;
     rebuffering_ = false;
+    resume_target_ms_ = 2000;
     rebuffer_grace_until_ = now + std::chrono::milliseconds(1000);   // let the feed settle before judging again
     if (held > longest_stall_ms_) longest_stall_ms_ = held;
     api_->resume(handle_);

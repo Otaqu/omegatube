@@ -53,7 +53,7 @@ public:
     const std::string& error() const { return error_; }
 
 private:
-    bool connect_to(const Url& url);
+    bool connect_to(const Url& url, bool allow_pool = true);
     bool read_headers();
     size_t raw_read(void* dst, size_t n);  // from buffer, then transport
     bool read_line(std::string& line);
@@ -62,6 +62,7 @@ private:
     std::unique_ptr<Transport> transport_;
     std::string host_key_;
     bool reusable_ = false;
+    bool adopted_ = false;   // took its socket from the keep-alive pool
 
     std::vector<uint8_t> buf_;
     size_t buf_pos_ = 0, buf_len_ = 0;

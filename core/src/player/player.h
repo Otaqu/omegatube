@@ -135,6 +135,9 @@ private:
     int64_t live_base_ms_ = 0;  // live: absolute broadcast time of our playback position 0
     std::atomic<int64_t> stall_grace_until_ms_{0};
     std::atomic<bool> seek_pending_{false};
+    std::atomic<int64_t> resume_target_ms_{2000};   // buffer lead required to resume after a hold
+    std::atomic<bool> seek_log_pending_{false};     // log the first feed after a seek
+    std::atomic<int64_t> seek_t0_ns_{0};
     std::mutex refresh_mutex_;
     Clock::time_point last_refresh_{};
     Clock::time_point started_at_;
