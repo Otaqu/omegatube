@@ -490,6 +490,7 @@ void omega_player_get_stats(omega_player* p, omega_player_stats* out) {
     out->stalls = s.stalls;
     out->errors = s.errors;
     out->video_kbps = s.video_kbps;
+    out->last_seek_ms = s.last_seek_ms;
     out->audio_kbps = s.audio_kbps;
     out->duration_ms = s.duration_ms;
     out->reconnecting = s.reconnecting;

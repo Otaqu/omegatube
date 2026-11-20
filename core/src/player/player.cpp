@@ -452,7 +452,8 @@ void Player::feed_loop(Track& t) {
         t.submitted_ms = s.pts_ms;
         if (seek_log_pending_.exchange(false)) {
             int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
-            OLOG("seek: packets flowing again after %lld ms", static_cast<long long>((now_ns - seek_t0_ns_.load()) / 1000000));
+            last_seek_ms_ = (now_ns - seek_t0_ns_.load()) / 1000000;
+            OLOG("seek: packets flowing again after %lld ms", static_cast<long long>(last_seek_ms_.load()));
         }
     }
 }
@@ -578,6 +579,7 @@ PlayerStats Player::stats() {
     s.audio_underruns = audio_.underruns;
     s.stalls = stalls_;
     s.longest_stall_ms = longest_stall_ms_;
+    s.last_seek_ms = last_seek_ms_.load();
     double secs = prepared_ ? std::max<int64_t>(ms_since(started_at_), 1) / 1000.0 : 1.0;
     s.video_kbps = video_.bytes * 8.0 / 1000.0 / secs;
     s.audio_kbps = audio_.bytes * 8.0 / 1000.0 / secs;

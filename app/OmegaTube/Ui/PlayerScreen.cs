@@ -1019,7 +1019,7 @@ namespace OmegaTube.Ui
                     $"  buffer  video {stats.VideoQueuedMs / 1000.0:F1}s  audio {stats.AudioQueuedMs / 1000.0:F1}s" +
                     $"   fed ahead  video {(stats.VideoSubmittedMs - stats.PositionMs) / 1000.0:F1}s  audio {(stats.AudioSubmittedMs - stats.PositionMs) / 1000.0:F1}s\n" +
                     $"  bitrate  video {stats.VideoKbps:F0} kb/s  audio {stats.AudioKbps:F0} kb/s\n" +
-                    $"  stalls {stats.Stalls} (max {stats.LongestStallMs} ms)  underruns v{stats.VideoUnderruns}/a{stats.AudioUnderruns}" +
+                    $"  stalls {stats.Stalls} (max {stats.LongestStallMs} ms)  underruns v{stats.VideoUnderruns}/a{stats.AudioUnderruns}  seek {stats.LastSeekMs} ms" +
                     (stats.Buffering != 0 ? "   BUFFERING" : "") + "\n" +
                     $"  errors {stats.Errors}   speed {sessionSpeed:0.##}x   max {maxHeight}p" +
                     (info.Current != null ? "   playing " + QualityLabel(info.Current) : "") +

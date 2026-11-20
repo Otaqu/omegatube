@@ -52,6 +52,7 @@ struct PlayerStats {
     int64_t duration_ms;
     int reconnecting;  // a stream is retrying after a network error
     int buffering;     // playback is held until video and audio have enough data again (see update_rebuffering)
+    int64_t last_seek_ms;  // seek -> first packets flowing again
 };
 
 // Plays one DASH video track + one audio track (fragmented MP4 or WebM over HTTP) with ESPlayer.
@@ -138,6 +139,7 @@ private:
     std::atomic<int64_t> resume_target_ms_{2000};   // buffer lead required to resume after a hold
     std::atomic<bool> seek_log_pending_{false};     // log the first feed after a seek
     std::atomic<int64_t> seek_t0_ns_{0};
+    std::atomic<int64_t> last_seek_ms_{0};
     std::mutex refresh_mutex_;
     Clock::time_point last_refresh_{};
     Clock::time_point started_at_;
