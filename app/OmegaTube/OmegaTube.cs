@@ -14,6 +14,7 @@ namespace OmegaTube
         private readonly List<Screen> stack = new List<Screen>();
         private ConfirmDialog dialog;   // open modal question: gets every key
         private ActionMenu actionMenu;  // long-press OK menu on the home feed: gets every key while open
+        private SummaryDialog summaryDialog;   // the AI summary panel, when open
 
         private View toast;
         private Timer toastTimer;
@@ -314,6 +315,11 @@ namespace OmegaTube
                 actionMenu.OnKey(key);
                 return;
             }
+            if (summaryDialog != null)
+            {
+                summaryDialog.OnKey(key);
+                return;
+            }
             // OK on a card of a list / the home feed: always the actions menu ("Play" is its first entry).
             // One press, no timers: this remote sends no key-up, so every press behaves the same.
             if (key == "Return" && stack[stack.Count - 1] is IHoldActions hold && hold.FocusedItem != null)
@@ -339,6 +345,7 @@ namespace OmegaTube
             {
                 // remove first: destructive actions read better at the top of a list menu
                 (I18n.T("Play"), () => Play(item)),
+                (I18n.T("Summarize"), () => Summarize(item)),
                 (I18n.T("Add to Watch Later"), () => UiGuard.Fire("actions.watchlater", async () =>
                 {
                     string error = await YouTube.PlaylistEdit("WL", item.Id, true);
@@ -397,6 +404,27 @@ namespace OmegaTube
                 actionMenu = null;
             });
             Window.Instance.Add(actionMenu);
+        }
+
+        // The card menu's summary: transcript through the core, bullets from OpenRouter.
+        public void Summarize(VideoItem item)
+        {
+            if (string.IsNullOrEmpty(Config.SummaryKey))
+            {
+                Toast(I18n.T("Set the OpenRouter key in Settings (AI summary)"));
+                return;
+            }
+            summaryDialog = new SummaryDialog(item.Title ?? "", () =>
+            {
+                Window.Instance.Remove(summaryDialog);
+                summaryDialog = null;
+            });
+            Window.Instance.Add(summaryDialog);
+            UiGuard.Fire("summary", async () =>
+            {
+                (string text, string error) = await YouTube.Summarize(item.Id, Config.SummaryKey, Config.SummaryModel);
+                summaryDialog?.Show(text, error);
+            });
         }
 
         // A short message near the bottom of the screen.

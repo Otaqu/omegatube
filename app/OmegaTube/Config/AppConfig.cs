@@ -249,6 +249,10 @@ namespace OmegaTube.Config
             Region = Json.Str(root, "region", Region);
             CheckUpdates = Json.Bool(root, "checkUpdates", CheckUpdates);
             SummaryKey = Json.Str(root, "summaryKey", SummaryKey);
+            if (string.IsNullOrEmpty(SummaryKey))
+            {
+                SummaryKey = Secrets.SummaryKey;   // an old config saved the empty pre-secret default
+            }
             ListLayout = Json.Bool(root, "listLayout", ListLayout);
             SummaryModel = Json.Str(root, "summaryModel", SummaryModel);
             object sb = Json.Obj(root, "sponsorBlock");

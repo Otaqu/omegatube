@@ -123,6 +123,7 @@ public:
     virtual ~Transport() = default;
     virtual long send(const void* data, size_t n) = 0;  // <0 on error
     virtual long recv(void* data, size_t n) = 0;        // 0 on EOF, <0 on error
+    virtual void interrupt() = 0;                       // shutdown(): blocked recv returns at once
 };
 
 namespace {
@@ -132,6 +133,7 @@ public:
     explicit PlainTransport(int fd) : fd_(fd) {}
     ~PlainTransport() override { ::close(fd_); }
     long send(const void* data, size_t n) override { return ::send(fd_, data, n, MSG_NOSIGNAL); }
+    void interrupt() override { ::shutdown(fd_, SHUT_RDWR); }
     long recv(void* data, size_t n) override {
         for (;;) {
             ssize_t r = ::recv(fd_, data, n, 0);
@@ -178,6 +180,8 @@ public:
         }
         return true;
     }
+
+    void interrupt() override { ::shutdown(fd_, SHUT_RDWR); }
 
     long send(const void* data, size_t n) override {
         size_t sent = 0;
@@ -291,6 +295,10 @@ bool Url::parse(const std::string& url, Url& out) {
 
 Connection::Connection() : buf_(64 * 1024) {}
 Connection::~Connection() { close(); }
+
+void Connection::interrupt() {
+    if (transport_) transport_->interrupt();
+}
 
 void Connection::close() {
     if (transport_ && reusable_ && body_done_ && !host_key_.empty()) pool_put(host_key_, std::move(transport_));
@@ -613,10 +621,16 @@ bool RangeReader::recover() {
     return true;
 }
 
+void RangeReader::interrupt() { conn_.interrupt(); }
+
 size_t RangeReader::read(void* dst, size_t n) {
     auto* out = static_cast<uint8_t*>(dst);
     size_t total = 0;
     while (total < n && !eof_) {
+        if (hooks_.aborted && hooks_.aborted()) {
+            eof_ = true;
+            break;
+        }
         if (!open_ && !open_next()) {
             if (eof_ || !recover()) break;
             continue;

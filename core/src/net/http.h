@@ -45,6 +45,7 @@ public:
     size_t read(void* dst, size_t n);
     std::string read_all(size_t limit = 64 * 1024 * 1024);
     void close();
+    void interrupt();   // shutdown the socket: a blocked recv returns 0
 
     int status() const { return status_; }
     int64_t content_length() const { return content_length_; }
@@ -90,6 +91,7 @@ Response fetch(const Request& req, size_t max_body = 64 * 1024 * 1024);
 // Forward-only byte stream of a media track, as the demuxers consume it.
 class StreamSource {
 public:
+    virtual void interrupt() {}   // make a blocked read return as soon as possible
     struct Hooks {
         std::function<bool()> aborted;             // stop retrying (seek / player teardown)
         std::function<std::string()> refresh_url;  // new URL for an expired one ("" = none)
@@ -124,6 +126,7 @@ public:
     RangeReader(std::string url, Headers headers, uint64_t chunk_size = 4 * 1024 * 1024, uint64_t start = 0);
 
     size_t read(void* dst, size_t n) override;
+    void interrupt() override;
     uint64_t position() const override { return pos_; }
     int64_t total_size() const override { return total_; }
     const std::string& url() const override { return url_; }

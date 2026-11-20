@@ -93,6 +93,7 @@ private:
         std::atomic<uint32_t> underruns{0};
         std::atomic<uint64_t> bytes{0};
         std::thread demux_thread, feed_thread;
+        net::StreamSource* source = nullptr;   // set while the track runs: stop_track interrupts it
     };
 
     void demux_loop(Track& t, media::Demuxer* reader, net::StreamSource* source);
@@ -140,6 +141,7 @@ private:
     std::atomic<bool> seek_log_pending_{false};     // log the first feed after a seek
     std::atomic<int64_t> seek_t0_ns_{0};
     std::atomic<int64_t> last_seek_ms_{0};
+    std::atomic<bool> seek_fragment_log_{false};
     std::mutex refresh_mutex_;
     Clock::time_point last_refresh_{};
     Clock::time_point started_at_;

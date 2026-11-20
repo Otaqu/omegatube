@@ -278,6 +278,7 @@ std::string Player::fresh_url(Track& t) {
 
 void Player::start_track(Track& t, media::Demuxer* reader, net::StreamSource* source) {
     attach_hooks(t, *source);
+    t.source = source;
     t.active = true;
     t.demux_thread = std::thread([this, &t, reader, source] { demux_loop(t, reader, source); });
     t.feed_thread = std::thread([this, &t] { feed_loop(t); });
@@ -286,6 +287,7 @@ void Player::start_track(Track& t, media::Demuxer* reader, net::StreamSource* so
 void Player::stop_track(Track& t) {
     t.active = false;
     t.cv.notify_all();
+    if (t.source) t.source->interrupt();   // a blocked recv must not hold the seek for the socket timeout
     if (t.feed_thread.joinable()) t.feed_thread.join();
     if (t.demux_thread.joinable()) t.demux_thread.join();
     std::lock_guard<std::mutex> lock(t.mutex);
@@ -293,6 +295,7 @@ void Player::stop_track(Track& t) {
     t.queued_ms = 0;
     t.queued_bytes = 0;
     t.demux_done = false;
+    t.source = nullptr;
 }
 
 bool Player::seek(int64_t ms) {
@@ -308,6 +311,7 @@ bool Player::seek(int64_t ms) {
     bool use[] = {cfg_.use_video, cfg_.use_audio};
     for (int i = 0; i < 2; ++i)
         if (use[i]) stop_track(*tracks[i]);
+    OLOG("seek: tracks stopped in %lld ms", static_cast<long long>(ms_since(t0)));
 
     for (Track* t : tracks) t->ready_to_feed = false;
     feed_from_ms_ = target;
@@ -317,9 +321,11 @@ bool Player::seek(int64_t ms) {
     resume_target_ms_ = 700;
     seek_t0_ns_ = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
     seek_log_pending_ = true;
+    seek_fragment_log_ = true;
     position_ms_ = target;
     stall_grace_until_ms_ = ms_since(started_at_) + 3000;
     int rc = api_->seek(handle_, static_cast<uint64_t>(target));
+    OLOG("seek: esp seek returned in %lld ms (rc %d)", static_cast<long long>(ms_since(t0)), rc);
     // A seek starts with an empty buffer. Hold playback (the same hold as a stall) until both tracks have data, so it
     // starts smoothly instead of stuttering a moment later. What was fed before the seek says nothing about now.
     video_.submitted_ms = target;
@@ -387,7 +393,13 @@ void Player::demux_loop(Track& t, media::Demuxer* reader_raw, net::StreamSource*
         }
         if (!running_ || !t.active) break;
         fragment.clear();
-        if (!reader->read_fragment(fragment)) {
+        const bool got = reader->read_fragment(fragment);
+        if (got && seek_fragment_log_.exchange(false)) {
+            int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
+            OLOG("seek: first fragment (%s) in %lld ms", stream_name(t.type),
+                 static_cast<long long>((now_ns - seek_t0_ns_.load()) / 1000000));
+        }
+        if (!got) {
             OLOG("%s demux: end at byte %llu/%lld (%s%s%s)", stream_name(t.type),
                  static_cast<unsigned long long>(source->position()), static_cast<long long>(source->total_size()),
                  reader->error().empty() ? "eof" : reader->error().c_str(), source->error().empty() ? "" : ", http: ",
