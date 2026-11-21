@@ -213,7 +213,7 @@ nlohmann::json audio_tracks_json(const omega::yt::VideoInfo& info) {
 }  // namespace
 
 omega_player* omega_player_create_youtube(void* window, int width, int height, const char* video_id,
-                                          int max_height, const char* codecs, int64_t start_ms,
+                                          int max_height, int min_height, const char* codecs, int64_t start_ms,
                                           const char* audio_track) {
     omega::yt::Client client;
     omega::yt::VideoInfo info;
@@ -229,7 +229,7 @@ omega_player* omega_player_create_youtube(void* window, int width, int height, c
     std::vector<std::string> skipped_clients;
     for (;;) {
         std::vector<const omega::yt::Format*> videos =
-            omega::yt::rank_videos(info, max_height > 0 ? max_height : 1080, prefs);
+            omega::yt::rank_videos(info, max_height > 0 ? max_height : 1080, prefs, min_height);
         const omega::yt::Format* audio = omega::yt::pick_audio(info, audio_track ? audio_track : "");
         if (videos.empty() || !audio) {
             OLOG("youtube %s: no playable video (%s) / AAC audio format", video_id, codecs ? codecs : "-");

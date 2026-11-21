@@ -1325,13 +1325,15 @@ std::string Format::video_codec() const {
     return "";
 }
 
-std::vector<const Format*> rank_videos(const VideoInfo& info, int max_height, const std::vector<std::string>& codecs) {
+std::vector<const Format*> rank_videos(const VideoInfo& info, int max_height, const std::vector<std::string>& codecs,
+                                       int min_height) {
     auto pref = [&codecs](const Format* f) {
         return std::find(codecs.begin(), codecs.end(), f->video_codec()) - codecs.begin();
     };
     std::vector<const Format*> out;
     for (const Format& f : info.formats)
-        if (f.height <= max_height && pref(&f) < static_cast<long>(codecs.size())) out.push_back(&f);
+        if (f.height <= max_height && (min_height <= 0 || f.height >= min_height) &&
+            pref(&f) < static_cast<long>(codecs.size())) out.push_back(&f);
     std::stable_sort(out.begin(), out.end(), [&](const Format* a, const Format* b) {
         if (a->height != b->height) return a->height > b->height;
         if (a->fps != b->fps) return a->fps > b->fps;

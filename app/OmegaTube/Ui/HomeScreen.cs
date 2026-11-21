@@ -55,6 +55,8 @@ namespace OmegaTube.Ui
         private TextLabel updateBanner;
         private Screen shown;      // hosted screen on display, if any
         private Timer openTimer, prewarmTimer;
+        private Timer enterTimer;     // OK on a section whose feed is still loading: enter when it lands
+        private bool pendingEnter;
         private string signature;  // sections as last built: rebuild the rail only when they change
         private int current;       // section shown beside the rail
         private bool inRail;
@@ -798,8 +800,34 @@ namespace OmegaTube.Ui
                         {
                             inRail = false;
                         }
+                        else
+                        {
+                            // The section's feed is still loading: enter it the moment there is something to focus,
+                            // instead of leaving OK dead (and the old screen's focus behind).
+                            pendingEnter = true;
+                            enterTimer?.Stop();
+                            enterTimer = new Timer(150);
+                            enterTimer.Tick += (s, e) =>
+                            {
+                                UiGuard.Tick("HomeScreen.enter", () =>
+                                {
+                                    if (!pendingEnter) { enterTimer.Stop(); return false; }
+                                    if (inRail && ContentFocusable())
+                                    {
+                                        pendingEnter = false;
+                                        inRail = false;
+                                        UpdateFocus();
+                                        enterTimer.Stop();
+                                    }
+                                    return false;
+                                });
+                                return true;
+                            };
+                            enterTimer.Start();
+                        }
                         break;
                     default:
+                        pendingEnter = false;
                         if (back)
                         {
                             return false;   // asks to quit the app
@@ -841,9 +869,11 @@ namespace OmegaTube.Ui
                 {
                     lastUp = DateTime.MinValue;
                     var pl = App.Config.Player;
-                    pl.MaxHeight = pl.MaxHeight >= 2160 ? 1080 : 2160;
+                    bool on = pl.MinHeight < 2160;
+                    pl.MinHeight = on ? 2160 : 0;
+                    if (on) pl.MaxHeight = 2160;
                     App.Config.Save();
-                    App.Toast(pl.MaxHeight >= 2160 ? T("4K on (up to 2160p)") : T("4K off (up to 1080p)"));
+                    App.Toast(on ? T("4K only on (2160p, 60 fps when offered)") : T("4K only off"));
                 }
                 else
                 {

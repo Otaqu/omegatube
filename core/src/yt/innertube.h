@@ -193,7 +193,8 @@ private:
 
 // Playable video formats at or below max_height, best first: highest resolution, then fps, then the codec
 // order of `codecs` (e.g. {"avc1", "vp9", "av01"}; codecs not listed are excluded).
-std::vector<const Format*> rank_videos(const VideoInfo& info, int max_height, const std::vector<std::string>& codecs);
+std::vector<const Format*> rank_videos(const VideoInfo& info, int max_height, const std::vector<std::string>& codecs,
+                                       int min_height = 0);
 // "avc1,vp9" -> {"avc1", "vp9"}
 std::vector<std::string> parse_codec_list(const std::string& list);
 // The AAC format with the highest bitrate of the preferred audio track: `track` is a track id ("fr.3") or a

@@ -443,7 +443,7 @@ namespace OmegaTube.Ui
             string audio = audioTrack;
             ShowLoading(T("Loading…"), opaque: true);
             await lastTeardown;
-            IntPtr created = await Task.Run(() => NativeCore.PlayerCreateYouTube(window, w, h, item.Id, height, codecs, start, audio));
+            IntPtr created = await Task.Run(() => NativeCore.PlayerCreateYouTube(window, w, h, item.Id, height, App.Config.Player.MinHeight, codecs, start, audio));
             if (closing)
             {
                 Release(created);

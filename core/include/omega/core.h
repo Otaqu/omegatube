@@ -71,7 +71,7 @@ OMEGA_API omega_player* omega_player_create(void* ecore_wl2_window, int width, i
 // start_ms > 0 resumes at that position. audio_track: audio track id ("fr.3") or language ("fr") for videos
 // with several audio languages; NULL/empty or not offered = the default (original) track.
 OMEGA_API omega_player* omega_player_create_youtube(void* ecore_wl2_window, int width, int height, const char* video_id,
-                                                    int max_height, const char* codecs, int64_t start_ms,
+                                                    int max_height, int min_height, const char* codecs, int64_t start_ms,
                                                     const char* audio_track);
 // Muted preview of a YouTube video (the home's "rest on it to see it" playback): video track only (no audio),
 // at most max_height (0 = 720), short read-ahead, and no watch-history reporting. Blocking (network): call it

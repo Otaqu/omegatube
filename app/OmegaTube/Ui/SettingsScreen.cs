@@ -53,7 +53,7 @@ namespace OmegaTube.Ui
         private static readonly int[] SeekSteps = { 5, 10, 15, 20, 30, 60 };
         private static readonly int[] Heights = { 720, 1080, 1440, 2160 };
         private static readonly string[] CodecSets = { "avc1,vp9", "vp9,avc1", "avc1,vp9,av01", "av01" };
-        private static readonly string[] CodecSetLabels = { "H.264, VP9 above 1080p", "VP9 first", "H.264 / VP9 / AV1 (experimental)", "AV1 only (test)" };
+        private static readonly string[] CodecSetLabels = { "H.264, VP9 above 1080p", "VP9 first", "H.264 / VP9 / AV1 (experimental)", "AV1 only" };
         private static readonly string[] Locales = { "fr-FR", "fr-BE", "fr-CA", "fr-CH", "en-US", "en-GB", "de-DE", "es-ES", "it-IT", "cs-CZ", "ru-RU" };
 
         private readonly List<Category> categories = new List<Category>();
@@ -302,6 +302,13 @@ namespace OmegaTube.Ui
         {
             l.Add(Choice(T("Maximum quality"), T("The best available quality up to this limit"),
                          () => HeightLabel(P.MaxHeight), d => P.MaxHeight = Cycle(Heights, P.MaxHeight, d)));
+            l.Add(Toggle(T("4K only"), T("Only play 2160p streams (60 fps when offered); videos without 4K will not play"),
+                         () => P.MinHeight >= 2160, v =>
+                         {
+                             P.MinHeight = v ? 2160 : 0;
+                             if (v) P.MaxHeight = 2160;
+                             App.Config.Save();
+                         }));
             l.Add(Choice(T("Video codecs"), T("Above 1080p, YouTube only offers VP9 or AV1"),
                          () => T(CodecSetLabels[Math.Max(0, Array.IndexOf(CodecSets, P.Codecs))]),
                          d =>

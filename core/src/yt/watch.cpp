@@ -112,6 +112,11 @@ bool tracking_urls(const std::string& video_id, const std::string& token, std::s
     const json& t = r.is_object() ? r.value("playbackTracking", json::object()) : json::object();
     playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
     watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
+    if (playback.empty()) {
+        const json& ps = r.is_object() ? r.value("playabilityStatus", json::object()) : json::object();
+        OLOG("history: tracking player answer status=%s reason=%s", ps.value("status", "?").c_str(),
+             ps.value("reason", "").c_str());
+    }
     return !playback.empty();
 }
 

@@ -286,7 +286,7 @@ namespace OmegaTube
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate void LogInitFn(string host, int port);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate void LogLineFn(string text);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate IntPtr CreateFn(IntPtr win, int w, int h, string videoUrl, string audioUrl);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate IntPtr CreateYtFn(IntPtr win, int w, int h, string videoId, int maxHeight, string codecs, long startMs, string audioTrack);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate IntPtr CreateYtFn(IntPtr win, int w, int h, string videoId, int maxHeight, int minHeight, string codecs, long startMs, string audioTrack);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate IntPtr CreatePreviewFn(IntPtr win, int w, int h, string videoId, int maxHeight, string codecs, long startMs);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate void DiagnoseFn(IntPtr win, int w, int h, string videoUrl, string audioUrl);
 
@@ -377,7 +377,7 @@ namespace OmegaTube
         public static void LogInitUdp(string host, int port) => _logInitUdp(host, port);
         public static void Log(string text) => _logLine(text);
         public static IntPtr PlayerCreate(IntPtr ecoreWindow, int width, int height, string videoUrl, string audioUrl) => _playerCreate(ecoreWindow, width, height, videoUrl, audioUrl);
-        public static IntPtr PlayerCreateYouTube(IntPtr ecoreWindow, int width, int height, string videoId, int maxHeight, string codecs, long startMs, string audioTrack) => _playerCreateYouTube(ecoreWindow, width, height, videoId, maxHeight, codecs, startMs, audioTrack);
+        public static IntPtr PlayerCreateYouTube(IntPtr ecoreWindow, int width, int height, string videoId, int maxHeight, int minHeight, string codecs, long startMs, string audioTrack) => _playerCreateYouTube(ecoreWindow, width, height, videoId, maxHeight, minHeight, codecs, startMs, audioTrack);
         public static IntPtr PlayerLastError() => _playerLastError();
         public static void PlayerTogglePause(IntPtr player) => _playerTogglePause(player);
         public static int PlayerSeek(IntPtr player, long positionMs) => _playerSeek(player, positionMs);
