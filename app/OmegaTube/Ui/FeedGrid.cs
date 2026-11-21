@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using OmegaTube.Data;
 using Tizen.NUI;
@@ -18,9 +19,9 @@ namespace OmegaTube.Ui
     {
         private const int Columns = 6;
         public static bool ListMode;   // Settings: rows instead of thumbnail cards
-        private const int GapX = 34, GapY = 40;
+        private const int GapX = 34, GapY = 28;
         private const int Pad = Theme.FocusMargin;   // room for the focused card's scale-up
-        private const int HeadingH = 56;              // section title above the highlights row and the grid
+        private const int HeadingH = 40;              // section title above the highlights row and the grid
         private const int RowsBefore = 3, RowsAfter = 6;   // rows kept shown around the focused one
         private const int PrefetchRows = 5;           // next page asked when the focus is this close to the end
 
@@ -229,6 +230,10 @@ namespace OmegaTube.Ui
         // New items in place of the current ones, keeping the cards of videos still there (and their thumbnail).
         private void ReplaceItems(List<VideoItem> newItems)
         {
+            // YouTube sometimes returns the same tile twice (two identical "Mix" cards): keep the first.
+            var seenTiles = new HashSet<string>();
+            newItems = newItems.Where(v => seenTiles.Add((v.Title ?? "") + "\u0001" + (v.Channel ?? ""))).ToList();
+
             Dictionary<string, IGridItem> old = ById(cards);
             int built = cards.Count;
             cards.Clear();

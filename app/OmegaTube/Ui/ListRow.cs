@@ -7,7 +7,7 @@ namespace OmegaTube.Ui
     // The list layout's row: one line per video (title, channel · views · age, duration), no thumbnails.
     public class ListRow : View, IGridItem
     {
-        public const int RowHeight = 72;
+        public const int RowHeight = 56;
 
         public VideoItem Item { get; private set; }
         public bool Filled { get; private set; }
