@@ -257,7 +257,7 @@ namespace OmegaTube.Data
             foreach (CaptionCue cue in cues)
             {
                 sb.Append(cue.Text).Append(' ');
-                if (sb.Length > 14000)
+                if (sb.Length > 48000)
                 {
                     break;
                 }
@@ -266,10 +266,15 @@ namespace OmegaTube.Data
             {
                 return (null, "Empty transcript");
             }
-            string language = I18n.Lang == "fr" ? "French" : I18n.Lang == "es" ? "Spanish" : "Turkish";
+            string language = I18n.Lang == "tr" ? "Turkish"
+                            : I18n.Lang == "fr" ? "French"
+                            : I18n.Lang == "es" ? "Spanish"
+                            : I18n.Lang == "cs" ? "Czech"
+                            : I18n.Lang == "ru" ? "Russian"
+                            : "English";
             string body = Json.Write(new Dictionary<string, object>
             {
-                ["model"] = string.IsNullOrEmpty(model) ? "~anthropic/claude-haiku-latest" : model,
+                ["model"] = string.IsNullOrEmpty(model) ? "xiaomi/mimo-v2.6-flash" : model,
                 ["messages"] = new List<object>
                 {
                     new Dictionary<string, object>

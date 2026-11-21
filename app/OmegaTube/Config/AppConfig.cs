@@ -119,7 +119,7 @@ namespace OmegaTube.Config
         public bool CheckUpdates = true;
         public string SummaryKey = Secrets.SummaryKey;   // OpenRouter API key for the card menu's summary
         public bool ListLayout = false;                   // rows without thumbnails instead of the card grid
-        public string SummaryModel = "~anthropic/claude-haiku-latest";   // cheap, reliable
+        public string SummaryModel = "xiaomi/mimo-v2.6-flash";   // fast + cheap ($0.14/$0.28 per M)
         public bool SponsorBlockEnabled = true;
         public Dictionary<string, SkipMode> SkipModes = new Dictionary<string, SkipMode>();
 
@@ -257,7 +257,8 @@ namespace OmegaTube.Config
             }
             ListLayout = Json.Bool(root, "listLayout", ListLayout);
             SummaryModel = Json.Str(root, "summaryModel", SummaryModel);
-            if (SummaryModel == "openrouter/free") SummaryModel = "~anthropic/claude-haiku-latest";
+            if (SummaryModel == "openrouter/free" || SummaryModel == "~anthropic/claude-haiku-latest")
+                SummaryModel = "xiaomi/mimo-v2.6-flash";
             object sb = Json.Obj(root, "sponsorBlock");
             if (sb != null)
             {

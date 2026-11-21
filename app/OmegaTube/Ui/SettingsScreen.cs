@@ -108,18 +108,20 @@ namespace OmegaTube.Ui
                 pane.Position = new Position(40, 40);
             }
             Root.Add(pane);
-            var title = Widgets.Label(T("Settings"), S(Theme.TitleSize) + 12, Theme.Text, 480, 70);
+            int titleH = (int)((S(Theme.TitleSize) + 12) * 1.55f) + 10;
+            var title = Widgets.Label(T("Settings"), S(Theme.TitleSize) + 12, Theme.Text, 480, titleH);
             title.Position = new Position(80, 64);
             Root.Add(title);
             var version = Widgets.Label("OmegaTube " + NativeCore.Version, S(Theme.SmallSize), Theme.TextMuted, 480);
-            version.Position = new Position(82, 134);
+            version.Position = new Position(82, 64 + titleH + 6);
             Root.Add(version);
 
-            paneTitle = Widgets.Label("", S(Theme.TitleSize) + 4, Theme.Text, ListW, 60);
+            int paneTitleH = (int)((S(Theme.TitleSize) + 4) * 1.5f) + 8;
+            paneTitle = Widgets.Label("", S(Theme.TitleSize) + 4, Theme.Text, ListW, paneTitleH);
             paneTitle.Position = new Position(ListX, 70);
             Root.Add(paneTitle);
-            paneDescription = Widgets.Label("", S(Theme.BodySize), Theme.TextDim, ListW, 40);
-            paneDescription.Position = new Position(ListX, 136);
+            paneDescription = Widgets.Label("", S(Theme.BodySize), Theme.TextDim, ListW, (int)(S(Theme.BodySize) * 1.6f) + 6);
+            paneDescription.Position = new Position(ListX, 70 + paneTitleH + 4);
             Root.Add(paneDescription);
 
             listClip = new View { Position = new Position(ListX - 20, ListY - 20), Size = new Size(ListW + 40, ListH + 20),
@@ -478,7 +480,7 @@ namespace OmegaTube.Ui
                 Value = () => App.Config.SummaryModel,
                 Activate = () => App.Push(new KeyEntryScreen(App, T("Summary model"), App.Config.SummaryModel, v =>
                 {
-                    App.Config.SummaryModel = string.IsNullOrEmpty(v) ? "~anthropic/claude-haiku-latest" : v;
+                    App.Config.SummaryModel = string.IsNullOrEmpty(v) ? "xiaomi/mimo-v2.6-flash" : v;
                     App.Config.Save();
                 })),
             });
