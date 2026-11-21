@@ -287,7 +287,11 @@ void Player::start_track(Track& t, media::Demuxer* reader, net::StreamSource* so
 void Player::stop_track(Track& t) {
     t.active = false;
     t.cv.notify_all();
-    if (t.source) t.source->interrupt();   // a blocked recv must not hold the seek for the socket timeout
+    {
+        // Under the lock: the demux thread clears t.source under the same lock before it frees the reader.
+        std::lock_guard<std::mutex> lock(t.mutex);
+        if (t.source) t.source->interrupt();   // a blocked recv must not hold the seek for the socket timeout
+    }
     if (t.feed_thread.joinable()) t.feed_thread.join();
     if (t.demux_thread.joinable()) t.demux_thread.join();
     std::lock_guard<std::mutex> lock(t.mutex);
@@ -416,6 +420,7 @@ void Player::demux_loop(Track& t, media::Demuxer* reader_raw, net::StreamSource*
     }
     std::lock_guard<std::mutex> lock(t.mutex);
     t.url = source->url();  // keep the redirected edge URL for later seeks
+    if (t.source == source_raw) t.source = nullptr;   // before source's unique_ptr frees it
     t.demux_done = true;
     t.cv.notify_all();
 }
