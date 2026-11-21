@@ -117,8 +117,11 @@ bool tracking_urls(const std::string& video_id, const std::string& token, std::s
 
 }  // namespace
 
-WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, PositionFn position)
-    : video_id_(std::move(video_id)), length_ms_(length_ms), position_(std::move(position)) {
+WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, std::string fallback_playback,
+                             std::string fallback_watchtime, PositionFn position)
+    : video_id_(std::move(video_id)), length_ms_(length_ms),
+      fallback_playback_(std::move(fallback_playback)), fallback_watchtime_(std::move(fallback_watchtime)),
+      position_(std::move(position)) {
     thread_ = std::thread([this] { run(); });
 }
 
@@ -133,8 +136,13 @@ void WatchReporter::run() {
     if (token.empty()) return;  // signed out: nothing to report
     std::string playback, watchtime;
     if (!tracking_urls(video_id_, token, playback, watchtime)) {
-        OLOG("history: no tracking URLs for %s", video_id_.c_str());
-        return;
+        // The TV client's answer carried none; the playback player response's URLs usually do (a token-less
+        // client's URLs are anonymous, but the pings still go to www.youtube.com with the Bearer token).
+        playback = fallback_playback_;
+        watchtime = fallback_watchtime_;
+        OLOG("history: TV tracking player gave none, using the playback response's URLs (%s)",
+             playback.empty() ? "also empty" : "ok");
+        if (playback.empty()) return;
     }
     const std::string cpn = make_cpn();
     const std::string version = cfg::str({"innertube", "browse", "clientVersion"});

@@ -125,12 +125,6 @@ omega_player* start_youtube(void* window, int width, int height, omega::yt::Clie
     cfg.max_width = video->width;
     cfg.max_height = video->height;
     cfg.duration_ms = info.length_s * 1000;
-    cfg.tracking_playback = info.tracking_playback;
-    cfg.tracking_watchtime = info.tracking_watchtime;
-    {
-        std::string auth_error;
-        if (omega::yt::shared_auth().signed_in()) cfg.tracking_token = omega::yt::shared_auth().access_token(auth_error);
-    }
     cfg.live = info.is_live;
     cfg.start_ms = info.is_live ? 0 : start_ms;
     // Expired URLs (403/410): ask InnerTube again and keep the same formats (and audio language).
@@ -162,7 +156,8 @@ omega_player* start_youtube(void* window, int width, int height, omega::yt::Clie
     }
     if (omega::yt::shared_auth().signed_in() && !info.is_live) {
         omega::Player* player = &p->impl;
-        p->history = std::make_unique<omega::yt::WatchReporter>(id, info.length_s * 1000, [player] {
+        p->history = std::make_unique<omega::yt::WatchReporter>(id, info.length_s * 1000,
+                                                                info.tracking_playback, info.tracking_watchtime, [player] {
             omega::PlayerStats s = player->stats();
             return s.state == 3 ? s.position_ms : int64_t(-1);  // only while PLAYING
         });

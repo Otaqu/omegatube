@@ -19,7 +19,10 @@ class WatchReporter {
 public:
     using PositionFn = std::function<int64_t()>;  // current playback position in ms (-1: not playing)
 
-    WatchReporter(std::string video_id, int64_t length_ms, PositionFn position);
+    // fallback_playback / fallback_watchtime: the tracking URLs of the player response that resolved the
+    // playback itself (non-empty when the TV-client fetch below comes back without any).
+    WatchReporter(std::string video_id, int64_t length_ms, std::string fallback_playback,
+                  std::string fallback_watchtime, PositionFn position);
     ~WatchReporter();
 
 private:
@@ -27,6 +30,7 @@ private:
 
     std::string video_id_;
     int64_t length_ms_;
+    std::string fallback_playback_, fallback_watchtime_;
     PositionFn position_;
     std::atomic<bool> stop_{false};
     std::thread thread_;

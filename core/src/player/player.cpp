@@ -36,29 +36,11 @@ bool video_mime(media::Codec c, esp::VideoMime& out) {
 
 }  // namespace
 
-namespace {
-// Fire-and-forget GET (the watch-history beacons): never blocks playback, failures only log.
-void beacon_async(std::string url, std::string token) {
-    std::thread([url = std::move(url), token = std::move(token)] {
-        omega::net::Request req;
-        req.method = "GET";
-        req.url = url;
-        if (!token.empty()) req.headers.emplace_back("Authorization", "Bearer " + token);
-        omega::net::Response res = omega::net::fetch(req);
-        if (!res.ok()) OLOG("beacon: %d %s", res.status, res.error.c_str());
-    }).detach();
-}
-}  // namespace
-
 Player::Player(PlayerConfig cfg) : cfg_(std::move(cfg)) {
     video_.type = esp::STREAM_VIDEO;
     video_.url = cfg_.video_url;
     audio_.type = esp::STREAM_AUDIO;
     audio_.url = cfg_.audio_url;
-    // cpn: the 16-character playback id every stats beacon carries.
-    static const char kCpnChars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
-    std::srand(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
-    for (int i = 0; i < 16; ++i) cpn_ += kCpnChars[std::rand() % 64];
 }
 
 Player::~Player() {
@@ -509,8 +491,6 @@ void Player::control_loop() {
     int rc = api_->start(handle_);
     started_at_ = Clock::now();
     OLOG("esp start -> %d", rc);
-    if (!cfg_.live && !cfg_.tracking_playback.empty())
-        beacon_async(cfg_.tracking_playback + "&cpn=" + cpn_, cfg_.tracking_token);
 
     // Stall detector: the playback clock must advance with wall time while PLAYING.
     uint64_t last_pos = 0;
@@ -520,15 +500,6 @@ void Player::control_loop() {
         sleep_ms(50);
         uint64_t pos = 0;
         api_->get_playing_time(handle_, &pos);
-        // Watchtime beacon every 10 s of playback: this is what makes YouTube record the view (history).
-        if (!cfg_.live && !cfg_.tracking_watchtime.empty() && !paused_ &&
-            ms_since(started_at_) - last_beacon_ms_ >= 10000) {
-            last_beacon_ms_ = ms_since(started_at_);
-            const int64_t cmt = static_cast<int64_t>(pos);
-            beacon_async(cfg_.tracking_watchtime + "&cpn=" + cpn_ + "&cmt=" + std::to_string(cmt) +
-                             "&et=" + std::to_string(cmt) + "&el=" + std::to_string(last_beacon_ms_),
-                         cfg_.tracking_token);
-        }
         // Until seek_done the player still reports the old position: keep the target so feeding
         // (paced on position_ms_) is not throttled against a stale clock.
         if (!seek_pending_) position_ms_ = static_cast<int64_t>(pos);
