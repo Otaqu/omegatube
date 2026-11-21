@@ -228,17 +228,45 @@ namespace OmegaTube.Ui
         }
 
         // New items in place of the current ones, keeping the cards of videos still there (and their thumbnail).
+        private readonly HashSet<string> seenKeys = new HashSet<string>();          // "title\u0001channel"
+        private readonly Dictionary<string, HashSet<string>> seenThumbs = new Dictionary<string, HashSet<string>>();
+
+        private static string NormKey(string s)
+        {
+            s = (s ?? "").Trim().ToLowerInvariant();
+            while (s.Contains("  ")) s = s.Replace("  ", " ");
+            return s;
+        }
+
+        private static string ThumbBase(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return "";
+            int q = url.IndexOf('?');
+            return q > 0 ? url.Substring(0, q) : url;
+        }
+
+        private bool AcceptTile(VideoItem v)
+        {
+            string t = NormKey(v.Title), c = NormKey(v.Channel);
+            if (!seenKeys.Add(t + "\u0001" + c)) return false;
+            string tb = ThumbBase(v.Thumbnail);
+            if (tb.Length > 0)
+            {
+                if (seenThumbs.TryGetValue(tb, out HashSet<string> seen) && seen.Contains(t)) return false;
+                if (seen == null) { seen = new HashSet<string>(); seenThumbs[tb] = seen; }
+                seen.Add(t);
+            }
+            return true;
+        }
+
         private void ReplaceItems(List<VideoItem> newItems)
         {
-            // YouTube sometimes returns the same tile twice (two identical "Mix" cards): keep the first. Mix
-            // cards for the same song carry different titles but the same artwork, so they dedupe on the thumbnail.
-            var seenTiles = new HashSet<string>();
-            newItems = newItems.Where(v =>
-            {
-                bool isMix = (v.Id ?? "").StartsWith("RD");
-                string key = isMix ? "mix:" + (v.Thumbnail ?? v.Title) : (v.Title ?? "") + "\u0001" + (v.Channel ?? "");
-                return seenTiles.Add(key);
-            }).ToList();
+            // YouTube sometimes returns the same tile twice (sometimes pages apart): one shared seen-set across
+            // Replace and Append drops the repeats. Title+channel catches exact repeats; same artwork + same
+            // title catches tiles whose title strings differ only invisibly.
+            seenKeys.Clear();
+            seenThumbs.Clear();
+            newItems = newItems.Where(AcceptTile).ToList();
 
             Dictionary<string, IGridItem> old = ById(cards);
             int built = cards.Count;
@@ -375,7 +403,8 @@ namespace OmegaTube.Ui
             }
             else
             {
-                items.AddRange(page.Items);
+                foreach (VideoItem v in page.Items)
+                    if (AcceptTile(v)) items.Add(v);
             }
             continuation = page.Continuation;
             status.Text = Count == 0 ? T("No videos") : "";
