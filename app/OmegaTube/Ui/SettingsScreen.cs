@@ -286,14 +286,21 @@ namespace OmegaTube.Ui
                 x = 72;
             }
             bool hint = !string.IsNullOrEmpty(r.Hint);
-            r.TitleLabel = Widgets.Label(r.Title, S(Theme.BodySize) + 4, Theme.Text, 640, hint ? 44 : RowH);
+            // Heights follow the scaled fonts: with a large text size the old fixed 44px clipped the title
+            // down to a bare "…" while the hint stayed visible.
+            float titlePx = S(Theme.BodySize) + 4;
+            float hintPx = S(Theme.SmallSize);
+            int titleH = (int)(titlePx * 1.5f) + 6;
+            int hintY = hint ? titleH + 4 : 0;
+            int hintH = RowH - hintY - 6;
+            r.TitleLabel = Widgets.Label(r.Title, titlePx, Theme.Text, 640, hint ? titleH : RowH);
             r.TitleLabel.VerticalAlignment = hint ? VerticalAlignment.Bottom : VerticalAlignment.Center;
-            r.TitleLabel.Position = new Position(x, hint ? 10 : 0);
+            r.TitleLabel.Position = new Position(x, hint ? 4 : 0);
             r.View.Add(r.TitleLabel);
             if (hint)
             {
-                r.HintLabel = Widgets.Label(r.Hint, S(Theme.SmallSize), Theme.TextDim, 680, 34);
-                r.HintLabel.Position = new Position(x, 56);
+                r.HintLabel = Widgets.Label(r.Hint, hintPx, Theme.TextDim, 680, hintH);
+                r.HintLabel.Position = new Position(x, hintY);
                 r.View.Add(r.HintLabel);
             }
             if (r.Switch != null)
