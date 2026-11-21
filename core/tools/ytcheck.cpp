@@ -11,6 +11,7 @@
 //   ytcheck --comments <videoId> [new]  comments header + first two pages (new: newest first)
 //   ytcheck --post-comment <videoId> <text>  posts a comment as the --signin account
 //   ytcheck --range <url> [MB] [out]  downloads MB megabytes through RangeReader (1 MB ranges, kept-alive)
+//   ytcheck --tracking <videoId>  the account's playback-tracking URLs (needs a --signin token)
 //   ytcheck <videoId> [MB]       resolves formats via InnerTube and downloads the whole audio stream and
 //                                the first MB megabytes (default 100) of the 1080p H.264 stream via ranges.
 //                                Env AUDIO=<track id or language> picks the audio language.
@@ -53,6 +54,23 @@ static bool drain(const char* label, const omega::yt::Format& f, const omega::ne
 
 int main(int argc, char** argv) {
     omega::cfg::init("");  // built-in remote-config.json defaults
+    if (argc >= 3 && strcmp(argv[1], "--tracking") == 0) {
+        omega::log::init_file("ytcheck.log");
+        omega::yt::shared_decipher().set_cache_dir(".");
+        omega::yt::Auth& auth = omega::yt::shared_auth();
+        auth.init("omegatube-auth.json");
+        std::string error, token = auth.access_token(error);
+        if (token.empty()) {
+            printf("not signed in (%s): run ytcheck --signin first\n", error.c_str());
+            return 1;
+        }
+        omega::yt::Client client;
+        std::string playback, watchtime;
+        bool ok = client.player_tracking(argv[2], token, "ytcheckCpn000000", playback, watchtime, error);
+        printf("%s\nplayback:  %s\nwatchtime: %s\n", ok ? "OK" : ("FAILED: " + error).c_str(), playback.c_str(),
+               watchtime.c_str());
+        return ok ? 0 : 1;
+    }
     if (argc >= 3 && strcmp(argv[1], "--get") == 0) {
         omega::net::Request req;
         req.url = argv[2];

@@ -134,9 +134,10 @@ public:
     // HTTP headers the googlevideo stream requests must carry (same User-Agent as the player request).
     net::Headers stream_headers() const;
 
-    // The playback-tracking URLs of a signed-in player answer, through the same client that played the video
-    // (its URLs are tied to the account; the TV client's answer has none: UNPLAYABLE "page needs to be reloaded").
-    bool player_tracking(const std::string& video_id, const std::string& client_name, const std::string& token,
+    // The playback-tracking URLs of a signed-in player answer (Bearer token): only those land the watch in the
+    // account's history. cpn: the playback nonce sent with the request; the pings must carry the same one.
+    // Clients: remote-config innertube.trackingClients, else SmartTube's downgraded TVHTML5 (see innertube.cpp).
+    bool player_tracking(const std::string& video_id, const std::string& token, const std::string& cpn,
                          std::string& playback, std::string& watchtime, std::string& error);
     // Video search (WEB client). Pass the previous Feed::continuation to get the next page.
     bool search(const std::string& query, const std::string& continuation, Feed& out, std::string& error);

@@ -646,56 +646,84 @@ bool Client::player_with(const json& c, const std::string& video_id, VideoInfo& 
     return true;
 }
 
-bool Client::player_tracking(const std::string& video_id, const std::string& client_name, const std::string& token,
+namespace {
+
+// Clients asked (signed in) for the account's playback-tracking URLs: remote-config innertube.trackingClients
+// when present, else SmartTube's choice (MediaServiceCore VideoInfoService.getAuthVideoInfo, 2026-11): TVHTML5
+// "downgraded" — clientVersion 5.x with an old Cobalt User-Agent, so YouTube serves it the regular (non-TCL)
+// player and its 5-digit signatureTimestamp. With Bearer and that timestamp the player endpoint answers OK
+// without any PO token. Without playbackContext.signatureTimestamp it answers UNPLAYABLE "The page needs to be
+// reloaded", and the VISIONOS / ANDROID clients refuse an OAuth token outright (http 400).
+std::vector<json> tracking_clients() {
+    json list = cfg::obj({"innertube"}).value("trackingClients", json::array());
+    std::vector<json> out;
+    if (list.is_array())
+        for (const json& c : list)
+            if (c.is_object() && !c.value("clientName", "").empty() && c.value("enabled", true)) out.push_back(c);
+    if (!out.empty()) return out;
+    const std::string cobalt = "Mozilla/5.0 (DirectFB; Linux x86_64) Cobalt/4.13031-qa (unlike Gecko) Starboard/1";
+    out.push_back({{"clientName", "TVHTML5"},
+                   {"clientVersion", "5.20260901"},
+                   {"clientNameId", 7},
+                   {"userAgent", cobalt},
+                   {"context", {{"userAgent", cobalt}, {"clientScreen", "WATCH"}}}});
+    // The playing TV client (Tizen UA), same request: the second chance if the downgraded version is retired.
+    for (const json& c : player_clients(false))
+        if (c.value("clientName", "") == "TVHTML5") out.push_back(c);
+    return out;
+}
+
+}  // namespace
+
+bool Client::player_tracking(const std::string& video_id, const std::string& token, const std::string& cpn,
                              std::string& playback, std::string& watchtime, std::string& error) {
     if (token.empty()) { error = "signed out"; return false; }
     if (!ensure_visitor(error)) return false;
-    std::vector<json> clients = player_clients(false);
-    // The playback client first (its answer matches what played), then every other configured one.
-    std::vector<const json*> order;
-    for (const json& c : clients)
-        if (c.value("clientName", "") == client_name) order.push_back(&c);
-    for (const json& c : clients)
-        if (c.value("clientName", "") != client_name) order.push_back(&c);
-    // The player endpoint's anti-bot wall ("The page needs to be reloaded") hits the WEB family once a Bearer
-    // token is attached; ANDROID + OAuth is the combination SmartTube/yt-dlp use for account-bound answers.
-    json android = {{"clientName", "ANDROID"},
-                    {"clientNameId", 3},
-                    {"clientVersion", "19.44.38"},
-                    {"userAgent", "com.google.android.youtube/19.44.38 (Linux; U; Android 11) gzip"},
-                    {"context", {{"clientName", "ANDROID"}, {"clientVersion", "19.44.38"},
-                                 {"androidSdkVersion", 30}, {"osName", "Android"}, {"osVersion", "11"}}}};
-    order.push_back(&android);
-    for (const json* chosen : order) {
-        ClientDef def = client_def_from(*chosen, visitor_data_);
-        json body = {{"context", {{"client", def.client}}},
+    // The 5-digit timestamp of the player JS (the one the playback deciphers with; usually already loaded).
+    if (!shared_decipher().ensure(error)) { error = "player js: " + error; return false; }
+    const int sts = shared_decipher().signature_timestamp();
+    for (const json& chosen : tracking_clients()) {
+        ClientDef def = client_def_from(chosen, visitor_data_);
+        const std::string label = def.client.value("clientName", "?") + " " + def.version;
+        json body = {{"context", {{"client", def.client},
+                                  {"user", {{"enableSafetyMode", false}, {"lockedSafetyMode", false}}}}},
                      {"videoId", video_id},
+                     {"cpn", cpn},
                      {"contentCheckOk", true},
-                     {"racyCheckOk", true}};
+                     {"racyCheckOk", true},
+                     {"playbackContext", {{"contentPlaybackContext", {{"html5Preference", "HTML5_PREF_WANTS"},
+                                                                      {"lactMilliseconds", 60000},
+                                                                      {"signatureTimestamp", sts}}}}}};
         net::Request req;
         req.method = "POST";
         req.url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
         req.headers = client_headers(def, visitor_data_);
+        req.headers.emplace_back("Referer", "https://www.youtube.com/tv");
         req.headers.emplace_back("Authorization", "Bearer " + token);
         req.body = body.dump();
         net::Response res = net::fetch(req);
         if (!res.ok()) {
             error = "http " + std::to_string(res.status);
-            OLOG("history: tracking via %s http %d", def.client.value("clientName", "?").c_str(), res.status);
+            OLOG("history: tracking via %s http %d", label.c_str(), res.status);
             continue;
         }
         json r = json::parse(res.body, nullptr, false);
+        const json& ps = r.is_object() ? r.value("playabilityStatus", json::object()) : json::object();
         const json& t = r.is_object() ? r.value("playbackTracking", json::object()) : json::object();
-        playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
-        watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
-        if (!playback.empty()) {
-            OLOG("history: tracking URLs via %s (account)", def.client.value("clientName", "?").c_str());
+        std::string status = ps.value("status", "?");
+        if (status == "OK") {
+            playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
+            watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
+        }
+        if (!playback.empty() && !watchtime.empty()) {
+            OLOG("history: account tracking URLs via %s (sts %d, OK)", label.c_str(), sts);
             return true;
         }
-        const json& ps = r.is_object() ? r.value("playabilityStatus", json::object()) : json::object();
-        OLOG("history: tracking via %s status=%s reason=%s", def.client.value("clientName", "?").c_str(),
-             ps.value("status", "?").c_str(), ps.value("reason", "").c_str());
-        error = ps.value("status", "no tracking");
+        playback.clear();
+        watchtime.clear();
+        OLOG("history: tracking via %s status=%s reason=%s", label.c_str(), status.c_str(),
+             ps.value("reason", "").c_str());
+        error = status + " " + ps.value("reason", "");
     }
     return false;
 }

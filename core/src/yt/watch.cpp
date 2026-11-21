@@ -20,15 +20,6 @@ namespace {
 using json = nlohmann::json;
 using Fields = std::vector<std::pair<std::string, std::string>>;
 
-std::string make_cpn() {
-    static const char kAlphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    std::random_device rd;
-    std::mt19937 rng(rd());
-    std::string out;
-    for (int i = 0; i < 16; ++i) out += kAlphabet[rng() & 63];
-    return out;
-}
-
 // "12.345". Not printf("%.3f"): that follows the process locale and gives "12,345" on a French TV.
 std::string seconds_text(double s) {
     long long ms = s < 0 ? 0 : std::llround(s * 1000);
@@ -124,10 +115,19 @@ bool tracking_urls(const std::string& video_id, const std::string& token, std::s
 
 }  // namespace
 
-WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, std::string fallback_playback,
-                             std::string fallback_watchtime, PositionFn position)
+std::string make_cpn() {
+    static const char kAlphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::string out;
+    for (int i = 0; i < 16; ++i) out += kAlphabet[rng() & 63];
+    return out;
+}
+
+WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, std::string playback, std::string watchtime,
+                             std::string cpn, PositionFn position)
     : video_id_(std::move(video_id)), length_ms_(length_ms),
-      fallback_playback_(std::move(fallback_playback)), fallback_watchtime_(std::move(fallback_watchtime)),
+      fallback_playback_(std::move(playback)), fallback_watchtime_(std::move(watchtime)), cpn_(std::move(cpn)),
       position_(std::move(position)) {
     thread_ = std::thread([this] { run(); });
 }
@@ -143,12 +143,13 @@ void WatchReporter::run() {
     if (token.empty()) return;  // signed out: nothing to report
     std::string playback = fallback_playback_, watchtime = fallback_watchtime_;
     if (!playback.empty()) {
-        OLOG("history: pings with the given tracking URLs");
+        OLOG("history: pings with %s tracking URLs", cpn_.empty() ? "the playback response's (anonymous)"
+                                                                  : "the account's");
     } else if (!tracking_urls(video_id_, token, playback, watchtime)) {
         OLOG("history: no tracking URLs for %s", video_id_.c_str());
         return;
     }
-    const std::string cpn = make_cpn();
+    const std::string cpn = cpn_.empty() ? make_cpn() : cpn_;
     const std::string version = cfg::str({"innertube", "browse", "clientVersion"});
     // el=detailpage: without it YouTube files the view as a Short and it never shows in the history.
     Fields pf = {{"ver", "2"}, {"cpn", cpn}, {"cmt", "0"}, {"el", "detailpage"}};
