@@ -166,6 +166,9 @@ omega_player* start_youtube(void* window, int width, int height, omega::yt::Clie
                     tr_playback = playback;
                     tr_watchtime = watchtime;
                     OLOG("history: account tracking URLs via %s", info.client.c_str());
+                } else {
+                    OLOG("history: no account tracking (%s) — pings will use the playback response's URLs",
+                         tr_error.c_str());
                 }
             }
         }

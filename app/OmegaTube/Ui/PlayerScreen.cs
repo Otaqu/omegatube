@@ -1023,7 +1023,7 @@ namespace OmegaTube.Ui
                     (stats.Buffering != 0 ? "   BUFFERING" : "") + "\n" +
                     $"  errors {stats.Errors}   speed {sessionSpeed:0.##}x   max {maxHeight}p" +
                     (info.Current != null ? "   playing " + QualityLabel(info.Current) : "") +
-                    (info.AudioTrack.Length > 0 ? "   audio " + info.AudioTrack : "") + "\n" + NativeCore.RecentLog(12);
+                    (info.AudioTrack.Length > 0 ? "   audio " + info.AudioTrack : "") + "\n" + NativeCore.RecentLog(30);
             }
             if (toast.Visibility && now > toastUntil)
             {

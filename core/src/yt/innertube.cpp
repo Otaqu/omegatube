@@ -651,39 +651,44 @@ bool Client::player_tracking(const std::string& video_id, const std::string& cli
     if (token.empty()) { error = "signed out"; return false; }
     if (!ensure_visitor(error)) return false;
     std::vector<json> clients = player_clients(false);
-    const json* chosen = nullptr;
+    // The playback client first (its answer matches what played), then every other configured one.
+    std::vector<const json*> order;
     for (const json& c : clients)
-        if (c.value("clientName", "") == client_name) { chosen = &c; break; }
-    if (!chosen && !clients.empty()) chosen = &clients.front();
-    if (!chosen) { error = "no client"; return false; }
-    ClientDef def = client_def_from(*chosen, visitor_data_);
-    json body = {{"context", {{"client", def.client}}},
-                 {"videoId", video_id},
-                 {"contentCheckOk", true},
-                 {"racyCheckOk", true}};
-    net::Request req;
-    req.method = "POST";
-    req.url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
-    req.headers = client_headers(def, visitor_data_);
-    req.headers.emplace_back("Authorization", "Bearer " + token);
-    req.body = body.dump();
-    net::Response res = net::fetch(req);
-    if (!res.ok()) {
-        error = "http " + std::to_string(res.status);
-        return false;
-    }
-    json r = json::parse(res.body, nullptr, false);
-    const json& t = r.is_object() ? r.value("playbackTracking", json::object()) : json::object();
-    playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
-    watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
-    if (playback.empty()) {
+        if (c.value("clientName", "") == client_name) order.push_back(&c);
+    for (const json& c : clients)
+        if (c.value("clientName", "") != client_name) order.push_back(&c);
+    for (const json* chosen : order) {
+        ClientDef def = client_def_from(*chosen, visitor_data_);
+        json body = {{"context", {{"client", def.client}}},
+                     {"videoId", video_id},
+                     {"contentCheckOk", true},
+                     {"racyCheckOk", true}};
+        net::Request req;
+        req.method = "POST";
+        req.url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
+        req.headers = client_headers(def, visitor_data_);
+        req.headers.emplace_back("Authorization", "Bearer " + token);
+        req.body = body.dump();
+        net::Response res = net::fetch(req);
+        if (!res.ok()) {
+            error = "http " + std::to_string(res.status);
+            OLOG("history: tracking via %s http %d", def.client.value("clientName", "?").c_str(), res.status);
+            continue;
+        }
+        json r = json::parse(res.body, nullptr, false);
+        const json& t = r.is_object() ? r.value("playbackTracking", json::object()) : json::object();
+        playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
+        watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
+        if (!playback.empty()) {
+            OLOG("history: tracking URLs via %s (account)", def.client.value("clientName", "?").c_str());
+            return true;
+        }
         const json& ps = r.is_object() ? r.value("playabilityStatus", json::object()) : json::object();
-        OLOG("history: tracking via %s status=%s reason=%s", client_name.c_str(), ps.value("status", "?").c_str(),
-             ps.value("reason", "").c_str());
+        OLOG("history: tracking via %s status=%s reason=%s", def.client.value("clientName", "?").c_str(),
+             ps.value("status", "?").c_str(), ps.value("reason", "").c_str());
         error = ps.value("status", "no tracking");
-        return false;
     }
-    return true;
+    return false;
 }
 
 bool Client::search(const std::string& query, const std::string& continuation, Feed& out, std::string& error) {

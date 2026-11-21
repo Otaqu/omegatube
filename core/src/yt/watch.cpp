@@ -79,6 +79,8 @@ bool ping(const std::string& url, const std::string& token) {
     req.headers = {{"User-Agent", cfg::str({"innertube", "browse", "userAgent"})},
                    {"Authorization", "Bearer " + token}};
     net::Response res = net::fetch(req);
+    if (res.status < 200 || res.status >= 300)
+        OLOG("history: ping http %d %s", res.status, res.error.c_str());
     return res.error.empty() && res.status >= 200 && res.status < 300;
 }
 
@@ -140,7 +142,9 @@ void WatchReporter::run() {
     std::string token = shared_auth().access_token(error);
     if (token.empty()) return;  // signed out: nothing to report
     std::string playback = fallback_playback_, watchtime = fallback_watchtime_;
-    if (playback.empty() && !tracking_urls(video_id_, token, playback, watchtime)) {
+    if (!playback.empty()) {
+        OLOG("history: pings with the given tracking URLs");
+    } else if (!tracking_urls(video_id_, token, playback, watchtime)) {
         OLOG("history: no tracking URLs for %s", video_id_.c_str());
         return;
     }
