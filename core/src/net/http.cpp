@@ -88,6 +88,7 @@ TlsContext& tls() {
 }
 
 int connect_tcp(const std::string& host, const std::string& port, std::string& error) {
+    auto t_dns0 = std::chrono::steady_clock::now();
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -96,6 +97,8 @@ int connect_tcp(const std::string& host, const std::string& port, std::string& e
         error = std::string("dns ") + host + ": " + gai_strerror(rc);
         return -1;
     }
+    const int64_t dns_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t_dns0).count();
     int fd = -1;
     for (addrinfo* ai = res; ai; ai = ai->ai_next) {
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
@@ -113,6 +116,9 @@ int connect_tcp(const std::string& host, const std::string& port, std::string& e
         fd = -1;
     }
     freeaddrinfo(res);
+    const int64_t tcp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t_dns0).count() - dns_ms;
+    if (fd >= 0 && dns_ms + tcp_ms > 250) OLOG("net: %s dns=%lld tcp=%lld ms", host.c_str(), (long long)dns_ms, (long long)tcp_ms);
     return fd;
 }
 
@@ -323,8 +329,12 @@ bool Connection::connect_to(const Url& url, bool allow_pool) {
     int fd = connect_tcp(url.host, url.port, error_);
     if (fd < 0) return false;
     if (url.tls) {
+        auto t0 = std::chrono::steady_clock::now();
         auto t = std::make_unique<TlsTransport>(fd);
         if (!t->handshake(url.host, error_)) return false;
+        const int64_t tls_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t0).count();
+        if (tls_ms > 250) OLOG("net: tls %s %lld ms", url.host.c_str(), (long long)tls_ms);
         transport_ = std::move(t);
     } else {
         transport_ = std::make_unique<PlainTransport>(fd);
@@ -334,6 +344,7 @@ bool Connection::connect_to(const Url& url, bool allow_pool) {
 }
 
 bool Connection::send(const Request& req) {
+    auto t_send0 = std::chrono::steady_clock::now();
     error_.clear();
     Url url;
     if (!Url::parse(req.url, url)) {
@@ -364,7 +375,12 @@ bool Connection::send(const Request& req) {
         const bool adopted = adopted_;
         adopted_ = false;
         buf_pos_ = buf_len_ = 0;
-        if (transport_->send(msg.data(), msg.size()) == static_cast<long>(msg.size()) && read_headers()) return true;
+        if (transport_->send(msg.data(), msg.size()) == static_cast<long>(msg.size()) && read_headers()) {
+            const int64_t req_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - t_send0).count();
+            if (req_ms > 250) OLOG("net: %s request %lld ms (status %d)", url.host.c_str(), (long long)req_ms, status_);
+            return true;
+        }
         reusable_ = false;   // this socket just failed: never pool it
         close();
         if (fresh && !adopted) {
