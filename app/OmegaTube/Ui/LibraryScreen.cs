@@ -19,6 +19,7 @@ namespace OmegaTube.Ui
         private class Entry
         {
             public string Title, Icon, PlaylistId;
+            public Action Open;
             public Widgets.PillButton Button;
         }
 
@@ -51,6 +52,10 @@ namespace OmegaTube.Ui
             bool signedIn = YouTube.SignedIn();
             if (signedIn)
             {
+                AddAction(T("Subscriptions"), "subscriptions",
+                          () => App.Push(new FeedScreen(App, T("Subscriptions"), c => YouTube.Browse("FEsubscriptions", c))));
+                AddAction(T("History"), "history",
+                          () => App.Push(new FeedScreen(App, T("History"), c => YouTube.Browse("FEhistory", c))));
                 Add(T("Watch Later"), "view_list", "WL");
                 Add(T("Liked videos"), "thumb_up", "LL");
                 Add(T("Liked Music"), "music", "LM");
@@ -75,6 +80,14 @@ namespace OmegaTube.Ui
             entries.Add(new Entry { Title = title, Icon = icon, PlaylistId = playlistId, Button = button });
         }
 
+        private void AddAction(string title, string icon, Action open)
+        {
+            var button = new Widgets.PillButton(title, icon, ItemW, ItemH);
+            button.Position = new Position(0, entries.Count * (ItemH + ItemGap));
+            listHost.Add(button);
+            entries.Add(new Entry { Title = title, Icon = icon, Open = open, Button = button });
+        }
+
         private void FocusEntry(int i)
         {
             focus = Math.Max(0, Math.Min(entries.Count - 1, i));
@@ -86,6 +99,11 @@ namespace OmegaTube.Ui
 
         private void Open(Entry entry)
         {
+            if (entry.Open != null)
+            {
+                entry.Open();
+                return;
+            }
             if (entry.PlaylistId == "LM")
             {
                 App.Push(new MusicListScreen(App));   // text list + shuffle, like the YT Music queue

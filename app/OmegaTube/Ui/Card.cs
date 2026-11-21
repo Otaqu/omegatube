@@ -145,9 +145,9 @@ namespace OmegaTube.Ui
             {
                 // The title: one line with an ellipsis (a longer one scrolls while the card is focused).
                 int titleW = width - 2 * InfoInset - 2 * TitlePad;
-                titleClip = new View { Position = new Position(TitlePad, 6), Size = new Size(titleW, 24),
+                titleClip = new View { Position = new Position(TitlePad, 6), Size = new Size(titleW, 26),
                                        ClippingMode = ClippingModeType.ClipChildren };
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, titleW, 24);
+                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, titleW, 26);
                 titleClip.Add(title);
                 info.Add(titleClip);
                 // Channel, views and age on one line under the card.
@@ -163,13 +163,13 @@ namespace OmegaTube.Ui
             }
             else if (!thumbOnly)
             {
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, width - 24, 42);
+                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, width - 24, 50);
                 title.MultiLine = true;
-                title.Position = new Position(12, 4);
+                title.Position = new Position(12, 2);
                 info.Add(title);
 
                 meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.TextDim, width - 24);
-                meta.Position = new Position(12, 46);
+                meta.Position = new Position(12, 52);
                 info.Add(meta);
                 ApplyFocusColors();
             }

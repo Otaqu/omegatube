@@ -36,15 +36,15 @@ namespace OmegaTube.Ui
         // shared widgets (panels, buttons) draw as glass instead of flat grey.
         public static bool Glorious;
 
-        public const float TitleSize = 24f;
-        public const float BodySize = 15f;
-        public const float SmallSize = 12f;
+        public const float TitleSize = 31f;
+        public const float BodySize = 19f;
+        public const float SmallSize = 15f;
 
         public const int RailWidth = 110;          // collapsed: icons only
         public const int RailExpandedWidth = 330;  // focused: icons + labels
         public const int CardWidth = 268;
         public const int CardGap = 16;
-        public const int CardInfoHeight = 66;      // title (2 lines) + channel line (smaller fonts)
+        public const int CardInfoHeight = 74;      // title (2 lines) + channel line
         public const int CardRadius = 14;          // soft corners (no sharp edges)
         public const float FocusScale = 1.1f;
         public const int FocusMargin = 30;         // room for the focused card's scale-up

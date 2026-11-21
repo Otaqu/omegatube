@@ -35,11 +35,11 @@ namespace OmegaTube.Config
         public int OsdTimeoutSeconds = 4;   // control bar auto-hide
         public bool ShowClock = true;       // wall clock in the control bar
         public bool ShowStats = false;      // technical overlay (buffer, bitrate, stalls)
-        public int MaxHeight = 1080;
+        public int MaxHeight = 2160;   // fixed: best up to 4K, 60 fps first, AV1 > VP9 > H.264
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
-        public double SettingsFontScale = 1.3;   // the Settings screen's own text scale
+        public double SettingsFontScale = 1.0;   // the Settings screen's own text scale (1.0 = the app-wide size)
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
-        public string Codecs = "avc1,vp9";
+        public string Codecs = "av01,vp9,avc1";
         public bool Autoplay = true;        // at the end of a video, play the first suggestion (after a countdown)
         // Subtitles: language turned on automatically ("" off). Choosing a track in the player updates it.
         public string CaptionLang = "";
@@ -173,7 +173,7 @@ namespace OmegaTube.Config
             }
         }
 
-        public SkipMode ModeForRaw(SponsorCategory c) => SkipModes.TryGetValue(c.Id, out SkipMode m) ? m : c.DefaultMode;
+        public SkipMode ModeForRaw(SponsorCategory c) => SkipModes.TryGetValue(c.Id, out SkipMode m) ? m : SkipMode.Manual;
 
         // English keys of the default sections: title, search query, icon.
         private static readonly string[][] Defaults =
@@ -279,6 +279,10 @@ namespace OmegaTube.Config
                 Player.ShowStats = Json.Bool(p, "showStats", Player.ShowStats);
                 Player.MaxHeight = (int)Json.Num(p, "maxHeight", Player.MaxHeight);
                 Player.MinHeight = (int)Json.Num(p, "minHeight", Player.MinHeight);
+                // Quality is fixed by design: best up to 2160p, 60 fps first, AV1 > VP9 > H.264.
+                Player.MaxHeight = 2160;
+                Player.MinHeight = 0;
+                Player.Codecs = "av01,vp9,avc1";
                 Player.SettingsFontScale = Json.Num(p, "settingsFontScale", Player.SettingsFontScale);
                 Player.Codecs = Json.Str(p, "codecs", Player.Codecs);
                 Player.Autoplay = Json.Bool(p, "autoplay", Player.Autoplay);

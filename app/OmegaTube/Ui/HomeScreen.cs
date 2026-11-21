@@ -247,18 +247,7 @@ namespace OmegaTube.Ui
                     EmptyText = T("Sign in to your account (Account menu) to see your recommendations, or use Search and the menu sections."),
                 },
                 new Section { Key = "search", Title = T("Search"), Icon = "search", Embed = () => new SearchScreen(App) },
-                new Section
-                {
-                    Key = "subscriptions", Title = T("Subscriptions"), Icon = "subscriptions", CacheKey = "subscriptions",
-                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Browse("FEsubscriptions", c)) : null,
-                    EmptyText = T("Sign in to your account (Account menu) to see the videos of your subscriptions."),
-                },
-                new Section
-                {
-                    Key = "history", Title = T("History"), Icon = "history", CacheKey = "history",
-                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Browse("FEhistory", c)) : null,
-                    EmptyText = T("Sign in to your account (Account menu) to see your history."),
-                },
+                // Subscriptions and History live inside the Library now.
                 new Section { Key = "library", Title = T("Library"), Icon = "view_list", Embed = () => new LibraryScreen(App) },
             };
             foreach (HomeRow row in App.Config.HomeRows)
@@ -709,11 +698,10 @@ namespace OmegaTube.Ui
             UpdateHero();
         }
 
-        // Shows the active account's photo on the top-left avatar (default icon when signed out).
+        // The top-left slot is a static OmegaTube mark now, not the account's photo.
         private void RefreshAvatar()
         {
-            ProfileAccount active = YouTube.Accounts().Find(a => a.Active);
-            rail?.SetAvatar(active?.Photo);
+            rail?.SetAvatar(Theme.Icon("omegatube"));
         }
 
         // OK on the avatar: cycle to the next signed-in account and reload; with fewer than two accounts, open
@@ -776,11 +764,7 @@ namespace OmegaTube.Ui
                 switch (key)
                 {
                     case "Up":
-                        if (rail.Index == 0)
-                        {
-                            avatarFocused = true;   // above the first entry sits the profile avatar
-                        }
-                        else
+                        if (rail.Index > 0)
                         {
                             rail.Move(-1);
                             ScheduleOpen();
@@ -862,24 +846,7 @@ namespace OmegaTube.Ui
                 }
                 return true;
             }
-            else if (key == "Up" && Feed != null && Feed.FocusedRow == 0)
-            {
-                // Two quick Ups on the top row: toggle the 4K cap. The feed is left alone (no refresh).
-                if ((DateTime.Now - lastUp).TotalMilliseconds < 800)
-                {
-                    lastUp = DateTime.MinValue;
-                    var pl = App.Config.Player;
-                    bool on = pl.MaxHeight < 2160;
-                    pl.MaxHeight = on ? 2160 : 1080;
-                    pl.MinHeight = 0;
-                    App.Config.Save();
-                    App.Toast(on ? T("Prefer 4K on (2160p, 60 fps first)") : T("Prefer 4K off (up to 1080p)"));
-                }
-                else
-                {
-                    lastUp = DateTime.Now;
-                }
-            }
+
             else if (Feed != null && !Feed.Move(key) && key == "Left")
             {
                 inRail = true;

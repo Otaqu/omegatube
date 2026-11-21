@@ -19,9 +19,9 @@ namespace OmegaTube.Ui
     {
         private const int Columns = 6;
         public static bool ListMode;   // Settings: rows instead of thumbnail cards
-        private const int GapX = 34, GapY = 28;
+        private const int GapX = 34, GapY = 20;
         private const int Pad = Theme.FocusMargin;   // room for the focused card's scale-up
-        private const int HeadingH = 40;              // section title above the highlights row and the grid
+        private const int HeadingH = 46;              // section title above the highlights row and the grid
         private const int RowsBefore = 3, RowsAfter = 6;   // rows kept shown around the focused one
         private const int PrefetchRows = 5;           // next page asked when the focus is this close to the end
 

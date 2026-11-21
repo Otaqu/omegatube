@@ -160,9 +160,9 @@ namespace OmegaTube.Ui
             Root.Add(help);
 
             AddCategory(T("Player"), "play", T("Controls and behaviour during playback"), BuildPlayer);
-            AddCategory(T("Video quality"), "quality", T("Resolution and codecs requested from YouTube"), BuildQuality);
+            // Video quality is fixed now (2160p, 60 fps first, AV1 > VP9 > H.264): no category.
             AddCategory(T("Subtitles and audio"), "subtitles", T("Languages and appearance of subtitles"), BuildCaptions, true);
-            AddCategory("SponsorBlock", "shield", T("Skipping sponsors and other segments reported by the community"), BuildSponsorBlock);
+            // SponsorBlock is hidden: the skip modes stay manual (a "Skip" button when a segment plays).
             AddCategory(T("Menu"), "view_list", T("Sidebar sections (add some from Search)"), BuildMenu);
             AddCategory(T("General"), "language", T("App language, content language and updates"), BuildGeneral);
             AddCategory(T("AI summary"), "info_outline", T("A transcript summary in the card menu, through OpenRouter"), BuildSummary);

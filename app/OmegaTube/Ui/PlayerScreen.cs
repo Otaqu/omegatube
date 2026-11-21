@@ -312,7 +312,7 @@ namespace OmegaTube.Ui
             panel = new ListPanel();
             Root.Add(panel);
 
-            statsLabel = Widgets.Label("", Theme.SmallSize, Theme.Text, 820, 270);
+            statsLabel = Widgets.Label("", 16, Theme.Text, 1500, 640);
             statsLabel.MultiLine = true;
             statsLabel.BackgroundColor = Theme.Scrim;
             Widgets.Round(statsLabel, 10);

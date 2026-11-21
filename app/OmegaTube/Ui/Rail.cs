@@ -210,20 +210,20 @@ namespace OmegaTube.Ui
                 ApplyOpen();
                 return;
             }
+            // Static rail: the icons never widen into labels (the classic layout keeps the full width for content).
             widen?.Stop();
             widen = new Animation(160);
-            float w = value ? Theme.RailExpandedWidth : Theme.RailWidth;
-            widen.AnimateTo(panel, "SizeWidth", w, Widgets.EaseOut);
+            widen.AnimateTo(panel, "SizeWidth", (float)Theme.RailWidth, Widgets.EaseOut);
             widen.Play();
             foreach (View item in items)
             {
-                item.SizeWidth = (value ? Theme.RailExpandedWidth : Theme.RailWidth) - 28;
+                item.SizeWidth = Theme.RailWidth - 28;
             }
             foreach (TextLabel l in labels)
             {
-                Widgets.SetVisible(l, value);
+                Widgets.SetVisible(l, false);
             }
-            panel.BackgroundColor = value ? Theme.Surface : Theme.Background;
+            panel.BackgroundColor = Theme.Background;
             Refresh();
         }
 
