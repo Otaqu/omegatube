@@ -346,7 +346,15 @@ namespace OmegaTube.Ui
         private bool NearFocus(int row)
         {
             int focusRow = inHighlights ? 0 : focus / Columns;
-            return row >= focusRow - RowsBefore && row <= focusRow + RowsAfter;
+            if (!(row >= focusRow - RowsBefore && row <= focusRow + RowsAfter))
+            {
+                return false;
+            }
+            // Integer layout: only the rows of the current page are drawn, so the next page never peeks in
+            // as a half row at the bottom edge.
+            float avail = height - gridTop - Pad;
+            int rowsFit = Math.Max(1, (int)(avail / rowStep));
+            return row >= viewTopRow && row < viewTopRow + rowsFit;
         }
 
         private async Task Load()
