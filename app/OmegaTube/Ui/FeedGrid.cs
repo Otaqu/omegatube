@@ -230,9 +230,15 @@ namespace OmegaTube.Ui
         // New items in place of the current ones, keeping the cards of videos still there (and their thumbnail).
         private void ReplaceItems(List<VideoItem> newItems)
         {
-            // YouTube sometimes returns the same tile twice (two identical "Mix" cards): keep the first.
+            // YouTube sometimes returns the same tile twice (two identical "Mix" cards): keep the first. Mix
+            // cards for the same song carry different titles but the same artwork, so they dedupe on the thumbnail.
             var seenTiles = new HashSet<string>();
-            newItems = newItems.Where(v => seenTiles.Add((v.Title ?? "") + "\u0001" + (v.Channel ?? ""))).ToList();
+            newItems = newItems.Where(v =>
+            {
+                bool isMix = (v.Id ?? "").StartsWith("RD");
+                string key = isMix ? "mix:" + (v.Thumbnail ?? v.Title) : (v.Title ?? "") + "\u0001" + (v.Channel ?? "");
+                return seenTiles.Add(key);
+            }).ToList();
 
             Dictionary<string, IGridItem> old = ById(cards);
             int built = cards.Count;

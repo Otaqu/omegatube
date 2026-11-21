@@ -87,7 +87,54 @@ TlsContext& tls() {
     return ctx;
 }
 
+// The router's DNS took ~5 s per googlevideo host (field log 2026-11-21): every seek resolved again and paid it.
+// Cache the resolved addresses for a while; a stale entry is dropped the moment all its addresses fail to connect.
+namespace {
+struct CachedAddr {
+    int family;
+    sockaddr_storage addr;
+    socklen_t len;
+};
+std::mutex g_dns_mutex;
+std::map<std::string, std::pair<std::vector<CachedAddr>, std::chrono::steady_clock::time_point>> g_dns_cache;
+constexpr int kDnsTtlSeconds = 600;
+}  // namespace
+
 int connect_tcp(const std::string& host, const std::string& port, std::string& error) {
+    const auto t_all0 = std::chrono::steady_clock::now();
+    const std::string key = host + ":" + port;
+    std::vector<CachedAddr> cached;
+    {
+        std::lock_guard<std::mutex> lock(g_dns_mutex);
+        auto it = g_dns_cache.find(key);
+        if (it != g_dns_cache.end() &&
+            std::chrono::steady_clock::now() - it->second.second < std::chrono::seconds(kDnsTtlSeconds)) {
+            cached = it->second.first;
+        }
+    }
+    auto try_addr = [&](const CachedAddr& a) -> int {
+        int fd = socket(a.family, SOCK_STREAM, 0);
+        if (fd < 0) return -1;
+        timeval tv{15, 0};
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        int rcvbuf = 2 * 1024 * 1024;
+        setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+        int one = 1;
+        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        if (connect(fd, reinterpret_cast<const sockaddr*>(&a.addr), a.len) == 0) return fd;
+        error = std::string("connect ") + host + ": " + strerror(errno);
+        ::close(fd);
+        return -1;
+    };
+    for (const auto& a : cached) {
+        int fd = try_addr(a);
+        if (fd >= 0) return fd;   // dns=0 by construction
+    }
+    if (!cached.empty()) {
+        std::lock_guard<std::mutex> lock(g_dns_mutex);
+        g_dns_cache.erase(key);
+    }
     auto t_dns0 = std::chrono::steady_clock::now();
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
@@ -99,26 +146,31 @@ int connect_tcp(const std::string& host, const std::string& port, std::string& e
     }
     const int64_t dns_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - t_dns0).count();
-    int fd = -1;
+    std::vector<CachedAddr> fresh;
     for (addrinfo* ai = res; ai; ai = ai->ai_next) {
-        fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-        if (fd < 0) continue;
-        timeval tv{15, 0};
-        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        int rcvbuf = 2 * 1024 * 1024;
-        setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-        int one = 1;
-        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-        if (connect(fd, ai->ai_addr, ai->ai_addrlen) == 0) break;
-        error = std::string("connect ") + host + ": " + strerror(errno);
-        ::close(fd);
-        fd = -1;
+        if ((ai->ai_family != AF_INET && ai->ai_family != AF_INET6) ||
+            ai->ai_addrlen > sizeof(sockaddr_storage)) continue;
+        CachedAddr a;
+        a.family = ai->ai_family;
+        std::memcpy(&a.addr, ai->ai_addr, ai->ai_addrlen);
+        a.len = static_cast<socklen_t>(ai->ai_addrlen);
+        fresh.push_back(a);
     }
     freeaddrinfo(res);
-    const int64_t tcp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - t_dns0).count() - dns_ms;
-    if (fd >= 0 && dns_ms + tcp_ms > 250) OLOG("net: %s dns=%lld tcp=%lld ms", host.c_str(), (long long)dns_ms, (long long)tcp_ms);
+    int fd = -1;
+    for (const auto& a : fresh) {
+        fd = try_addr(a);
+        if (fd >= 0) break;
+    }
+    if (fd >= 0 && !fresh.empty()) {
+        std::lock_guard<std::mutex> lock(g_dns_mutex);
+        g_dns_cache[key] = {std::move(fresh), std::chrono::steady_clock::now()};
+    }
+    const int64_t total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t_all0).count();
+    if (fd >= 0 && total_ms > 250) {
+        OLOG("net: %s dns=%lld tcp=%lld ms", host.c_str(), (long long)dns_ms, (long long)(total_ms - dns_ms));
+    }
     return fd;
 }
 
