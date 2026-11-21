@@ -180,10 +180,9 @@ namespace OmegaTube.Ui
             if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
                 // Disk-cached thumbnails load instantly; a miss paints the plain URL and upgrades when the
-                // background download (ThumbCache) lands. Ask for the 1080p still when the video has one.
-                string hq = ThumbCache.Hq(Item.Thumbnail);
-                string cached = ThumbCache.Get(hq);
-                Widgets.MaskedImage(thumb, cached ?? hq, Theme.Image("round_mask"));
+                // background download (ThumbCache) lands. The feed's own size (maxres looked wrong on 4:3).
+                string cached = ThumbCache.Get(Item.Thumbnail);
+                Widgets.MaskedImage(thumb, cached ?? Item.Thumbnail, Theme.Image("round_mask"));
                 if (cached == null && subscribedThumb != Item.Thumbnail)
                 {
                     if (subscribedThumb != null)

@@ -58,12 +58,14 @@ namespace OmegaTube.Ui
         private TextLabel emptyMessage;
         private readonly int width;
 
-        public FeedGrid(int width, int height, int cols = 6)
+        public FeedGrid(int width, int height, int cols = 6, int rowsPerPage = 0)
         {
             pump = BuildNext;
             this.width = width;
             this.height = height;
             Columns = Math.Max(1, cols);
+            pageRows = Math.Max(0, rowsPerPage);
+            pageSize = pageRows > 0 ? Columns * pageRows : 0;
             Size = new Size(width, height);
             ClippingMode = ClippingModeType.ClipChildren;
             columns = ListMode ? 1 : Columns;
@@ -326,7 +328,16 @@ namespace OmegaTube.Ui
         private IGridItem MakeItem(VideoItem item) =>
             ListMode ? (IGridItem)new ListRow(item, cardW) : new Card(item, cardW);
 
-        private Position CardPosition(int i) => new Position(Pad + (i % columns) * (cardW + GapX), gridTop + (i / columns) * rowStep);
+        private Position CardPosition(int i)
+        {
+            if (pageSize > 0)
+            {
+                // Horizontal pages: each page is a block of (Columns x pageRows) cards, pages side by side.
+                int page = i / pageSize, k = i % pageSize;
+                return new Position(Pad + page * width + (k % Columns) * (cardW + GapX), gridTop + (k / Columns) * rowStep);
+            }
+            return new Position(Pad + (i % columns) * (cardW + GapX), gridTop + (i / columns) * rowStep);
+        }
 
         // Builds the (unfilled, cheap) cards up to the last row kept around the focus.
         private void EnsureCards()
@@ -345,6 +356,11 @@ namespace OmegaTube.Ui
 
         private bool NearFocus(int row)
         {
+            if (pageSize > 0 && !inHighlights)
+            {
+                int page = focus / pageSize;
+                return row >= page * pageRows && row < (page + 1) * pageRows;
+            }
             int focusRow = inHighlights ? 0 : focus / Columns;
             if (!(row >= focusRow - RowsBefore && row <= focusRow + RowsAfter))
             {
@@ -490,6 +506,56 @@ namespace OmegaTube.Ui
             {
                 return MoveInHighlights(key);
             }
+            if (pageSize > 0)
+            {
+                int target = focus;
+                switch (key)
+                {
+                    case "Left":
+                        if (focus == 0)
+                        {
+                            return false;
+                        }
+                        target = focus - 1;
+                        break;
+                    case "Right":
+                        if (focus + 1 < items.Count)
+                        {
+                            target = focus + 1;
+                        }
+                        else
+                        {
+                            MaybePrefetch();
+                        }
+                        break;
+                    case "Up":
+                        if (focus % pageSize < Columns)
+                        {
+                            return false;
+                        }
+                        target = focus - Columns;
+                        break;
+                    case "Down":
+                        if (focus % pageSize + Columns >= pageSize || focus + Columns >= items.Count)
+                        {
+                            return false;
+                        }
+                        target = focus + Columns;
+                        break;
+                    default:
+                        return false;
+                }
+                if (target != focus)
+                {
+                    cards[focus].SetFocused(false);
+                    focus = target;
+                    EnsureCards();
+                    cards[focus].SetFocused(true);
+                    ScrollToFocus();
+                    MaybePrefetch();
+                }
+                return true;
+            }
             int next = focus;
             switch (key)
             {
@@ -574,6 +640,8 @@ namespace OmegaTube.Ui
         }
 
         private int viewTopRow;   // first row of the current page (paged scrolling)
+        private readonly int pageRows;   // horizontal page mode: rows per page (0 = vertical scrolling grid)
+        private readonly int pageSize;   // items per page in horizontal mode
 
         private void ScrollToFocus()
         {
@@ -586,6 +654,14 @@ namespace OmegaTube.Ui
             if (inHighlights)
             {
                 scroll = Widgets.Slide(content, 0, Pad, scroll);
+                UpdateVisibleRows();
+                return;
+            }
+            if (pageSize > 0)
+            {
+                // Horizontal paging: the whole block slides left/right, the focus never leaves its page.
+                int page = focus / pageSize;
+                scroll = Widgets.Slide(content, -page * width, Pad, scroll);
                 UpdateVisibleRows();
                 return;
             }

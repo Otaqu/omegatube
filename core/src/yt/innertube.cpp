@@ -657,6 +657,15 @@ bool Client::player_tracking(const std::string& video_id, const std::string& cli
         if (c.value("clientName", "") == client_name) order.push_back(&c);
     for (const json& c : clients)
         if (c.value("clientName", "") != client_name) order.push_back(&c);
+    // The player endpoint's anti-bot wall ("The page needs to be reloaded") hits the WEB family once a Bearer
+    // token is attached; ANDROID + OAuth is the combination SmartTube/yt-dlp use for account-bound answers.
+    json android = {{"clientName", "ANDROID"},
+                    {"clientNameId", 3},
+                    {"clientVersion", "19.44.38"},
+                    {"userAgent", "com.google.android.youtube/19.44.38 (Linux; U; Android 11) gzip"},
+                    {"context", {{"clientName", "ANDROID"}, {"clientVersion", "19.44.38"},
+                                 {"androidSdkVersion", 30}, {"osName", "Android"}, {"osVersion", "11"}}}};
+    order.push_back(&android);
     for (const json* chosen : order) {
         ClientDef def = client_def_from(*chosen, visitor_data_);
         json body = {{"context", {{"client", def.client}}},
