@@ -98,6 +98,7 @@ namespace OmegaTube.Ui
             ClearCards();
             focus = 0;
             viewTopRow = 0;
+            viewFirstCol = 0;
             continuation = "";
             fresh = false;
             loading = false;
@@ -332,9 +333,9 @@ namespace OmegaTube.Ui
         {
             if (pageSize > 0)
             {
-                // Horizontal pages: each page is a block of (Columns x pageRows) cards, pages side by side.
-                int page = i / pageSize, k = i % pageSize;
-                return new Position(Pad + page * width + (k % Columns) * (cardW + GapX), gridTop + (k / Columns) * rowStep);
+                // Horizontal strip: items come in blocks of (Columns x pageRows), the blocks side by side, so each
+                // row continues to the right (1 2 3 7 8 9 / 4 5 6 10 11 12).
+                return new Position(Pad + StripColumn(i) * (cardW + GapX), gridTop + (i % pageSize / Columns) * rowStep);
             }
             return new Position(Pad + (i % columns) * (cardW + GapX), gridTop + (i / columns) * rowStep);
         }
@@ -354,13 +355,11 @@ namespace OmegaTube.Ui
             }
         }
 
+        // Horizontal strip: the column of item i, counted from the strip's left end.
+        private int StripColumn(int i) => i / pageSize * Columns + i % Columns;
+
         private bool NearFocus(int row)
         {
-            if (pageSize > 0 && !inHighlights)
-            {
-                int page = focus / pageSize;
-                return row >= page * pageRows && row < (page + 1) * pageRows;
-            }
             int focusRow = inHighlights ? 0 : focus / Columns;
             if (!(row >= focusRow - RowsBefore && row <= focusRow + RowsAfter))
             {
@@ -511,23 +510,40 @@ namespace OmegaTube.Ui
                 int target = focus;
                 switch (key)
                 {
+                    // Left / Right stay on the focused row: past a page's edge they continue on the same row of
+                    // the neighbouring page (1 2 3 -> 7 8 9), never wrapping to the row below.
                     case "Left":
-                        if (focus == 0)
+                        if (focus % Columns > 0)
                         {
-                            return false;
+                            target = focus - 1;
                         }
-                        target = focus - 1;
+                        else if (focus >= pageSize)
+                        {
+                            target = focus - pageSize + Columns - 1;
+                        }
+                        else
+                        {
+                            return false;   // left edge of the first page: back to the rail
+                        }
                         break;
                     case "Right":
-                        if (focus + 1 < items.Count)
+                    {
+                        int along = focus % Columns < Columns - 1 ? focus + 1 : focus - (Columns - 1) + pageSize;
+                        int nextPageStart = (focus / pageSize + 1) * pageSize;
+                        if (along < items.Count)
                         {
-                            target = focus + 1;
+                            target = along;
+                        }
+                        else if (focus % Columns == Columns - 1 && nextPageStart < items.Count)
+                        {
+                            target = items.Count - 1;   // the next page is partial and has no card on this row yet
                         }
                         else
                         {
                             MaybePrefetch();
                         }
                         break;
+                    }
                     case "Up":
                         if (focus % pageSize < Columns)
                         {
@@ -640,6 +656,7 @@ namespace OmegaTube.Ui
         }
 
         private int viewTopRow;   // first row of the current page (paged scrolling)
+        private int viewFirstCol;   // horizontal strip: first visible column
         private readonly int pageRows;   // horizontal page mode: rows per page (0 = vertical scrolling grid)
         private readonly int pageSize;   // items per page in horizontal mode
 
@@ -659,9 +676,17 @@ namespace OmegaTube.Ui
             }
             if (pageSize > 0)
             {
-                // Horizontal paging: the whole block slides left/right, the focus never leaves its page.
-                int page = focus / pageSize;
-                scroll = Widgets.Slide(content, -page * width, Pad, scroll);
+                // Horizontal strip: the view moves one column at a time, only when the focus would leave it.
+                int col = StripColumn(focus);
+                if (col < viewFirstCol)
+                {
+                    viewFirstCol = col;
+                }
+                else if (col >= viewFirstCol + Columns)
+                {
+                    viewFirstCol = col - Columns + 1;
+                }
+                scroll = Widgets.Slide(content, -viewFirstCol * (cardW + GapX), Pad, scroll);
                 UpdateVisibleRows();
                 return;
             }
@@ -690,9 +715,11 @@ namespace OmegaTube.Ui
         private void UpdateVisibleRows()
         {
             EnsureCards();
+            bool strip = pageSize > 0 && !inHighlights;
             for (int i = 0; i < cards.Count; i++)
             {
-                cards[i].SetShown(NearFocus(i / columns));
+                int col = strip ? StripColumn(i) : 0;
+                cards[i].SetShown(strip ? col >= viewFirstCol && col < viewFirstCol + Columns : NearFocus(i / columns));
             }
             UiWork.Request(pump);
         }

@@ -57,8 +57,8 @@ namespace OmegaTube.Ui
         private static readonly int[] Heights = { 720, 1080, 1440, 2160 };
         private static readonly int[] HeightOrder = { 2160, 1440, 1080, 720 };
         private static readonly string[] HeightMenuLabels = { "2160p (4K)", "1440p (2K)", "1080p", "720p" };
-        private static readonly double[] SettingsScales = { 1.0, 1.15, 1.3, 1.5 };
-        private static readonly string[] SettingsScaleLabels = { "Small", "Medium", "Large", "Extra large" };
+        // The Settings screen's text scale: the former "Extra large" choice, now fixed.
+        private const float SettingsFontScale = 1.5f;
         private static readonly string[] CodecSets = { "avc1,vp9", "vp9,avc1", "av01,vp9,avc1", "avc1,vp9,av01", "av01" };
         private static readonly string[] CodecSetLabels = { "H.264, VP9 above 1080p", "VP9 first", "AV1 preferred (VP9 / H.264 fallback)", "H.264 / VP9 / AV1 (experimental)", "AV1 only" };
         private static readonly string[] Locales = { "fr-FR", "fr-BE", "fr-CA", "fr-CH", "en-US", "en-GB", "de-DE", "es-ES", "it-IT", "cs-CZ", "ru-RU" };
@@ -96,17 +96,9 @@ namespace OmegaTube.Ui
             }
         }
 
-        private static int ScaleIndex(double v)
-        {
-            int best = 0;
-            for (int i = 1; i < SettingsScales.Length; i++)
-                if (Math.Abs(SettingsScales[i] - v) < Math.Abs(SettingsScales[best] - v)) best = i;
-            return best;
-        }
-
         public SettingsScreen(App app, int startCategory = 0, int startRow = -1) : base(app)
         {
-            fs = (float)Math.Max(0.9, Math.Min(1.6, App.Config.Player.SettingsFontScale));
+            fs = SettingsFontScale;
             glorious = Theme.Glorious;   // the one source of truth: set from the config at start-up and when it changes
             Root.BackgroundColor = glorious ? Color.Transparent : Theme.Background;   // Glorious: glass over the page
 
@@ -425,26 +417,12 @@ namespace OmegaTube.Ui
                              App.Config.Save();
                              App.Home?.InvalidateRows();
                          }));
-            l.Add(Toggle(T("Light mode"), T("Experimental: light page and panels (restart the app to apply everywhere)"),
-                         () => App.Config.Player.LightMode, v =>
-                         {
-                             App.Config.Player.LightMode = v;
-                             Theme.SetLight(v);
-                             App.Config.Save();
-                         }));
             l.Add(Toggle(T("DeArrow titles"), T("Crowdsourced titles and de-clickbait from sponsor.ajay.app (cached on disk)"),
                          () => App.Config.Player.DeArrow, v =>
                          {
                              App.Config.Player.DeArrow = v;
                              Card.DeArrowOn = v;
                              App.Config.Save();
-                         }));
-            l.Add(Choice(T("Settings text size"), T("Text size of this screen only"), SettingsScaleLabels,
-                         () => ScaleIndex(App.Config.Player.SettingsFontScale),
-                         i =>
-                         {
-                             App.Config.Player.SettingsFontScale = SettingsScales[i];
-                             relabel = true;
                          }));
             if (App.Config.UiStyle == "glorious")
             {
@@ -500,7 +478,7 @@ namespace OmegaTube.Ui
                 Value = () => App.Config.SummaryModel,
                 Activate = () => App.Push(new KeyEntryScreen(App, T("Summary model"), App.Config.SummaryModel, v =>
                 {
-                    App.Config.SummaryModel = string.IsNullOrEmpty(v) ? "openrouter/free" : v;
+                    App.Config.SummaryModel = string.IsNullOrEmpty(v) ? "~anthropic/claude-haiku-latest" : v;
                     App.Config.Save();
                 })),
             });

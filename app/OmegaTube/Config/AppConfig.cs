@@ -37,8 +37,6 @@ namespace OmegaTube.Config
         public bool ShowStats = false;      // technical overlay (buffer, bitrate, stalls)
         public int MaxHeight = 2160;   // fixed: best up to 4K, 60 fps first, AV1 > VP9 > H.264
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
-        public double SettingsFontScale = 1.0;   // the Settings screen's own text scale (1.0 = the app-wide size)
-        public bool LightMode = false;           // experimental light palette
         public bool DeArrow = true;              // crowdsourced titles from sponsor.ajay.app (cached)
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
         public string Codecs = "av01,vp9,avc1";
@@ -121,7 +119,7 @@ namespace OmegaTube.Config
         public bool CheckUpdates = true;
         public string SummaryKey = Secrets.SummaryKey;   // OpenRouter API key for the card menu's summary
         public bool ListLayout = false;                   // rows without thumbnails instead of the card grid
-        public string SummaryModel = "openrouter/free";   // free models only
+        public string SummaryModel = "~anthropic/claude-haiku-latest";   // cheap, reliable
         public bool SponsorBlockEnabled = true;
         public Dictionary<string, SkipMode> SkipModes = new Dictionary<string, SkipMode>();
 
@@ -259,6 +257,7 @@ namespace OmegaTube.Config
             }
             ListLayout = Json.Bool(root, "listLayout", ListLayout);
             SummaryModel = Json.Str(root, "summaryModel", SummaryModel);
+            if (SummaryModel == "openrouter/free") SummaryModel = "~anthropic/claude-haiku-latest";
             object sb = Json.Obj(root, "sponsorBlock");
             if (sb != null)
             {
@@ -285,8 +284,6 @@ namespace OmegaTube.Config
                 Player.MaxHeight = 2160;
                 Player.MinHeight = 0;
                 Player.Codecs = "av01,vp9,avc1";
-                Player.SettingsFontScale = Json.Num(p, "settingsFontScale", Player.SettingsFontScale);
-                Player.LightMode = Json.Bool(p, "lightMode", Player.LightMode);
                 Player.DeArrow = Json.Bool(p, "dearrow", Player.DeArrow);
                 Player.Codecs = Json.Str(p, "codecs", Player.Codecs);
                 Player.Autoplay = Json.Bool(p, "autoplay", Player.Autoplay);
@@ -337,8 +334,6 @@ namespace OmegaTube.Config
                     ["showStats"] = Player.ShowStats,
                     ["maxHeight"] = Player.MaxHeight,
                     ["minHeight"] = Player.MinHeight,
-                    ["settingsFontScale"] = Player.SettingsFontScale,
-                    ["lightMode"] = Player.LightMode,
                     ["dearrow"] = Player.DeArrow,
                     ["codecs"] = Player.Codecs,
                     ["autoplay"] = Player.Autoplay,

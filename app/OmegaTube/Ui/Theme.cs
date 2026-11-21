@@ -6,7 +6,7 @@ namespace OmegaTube.Ui
     // 1920x1080 layout, sizes in pixels.
     public static class Theme
     {
-        public static Color Background = Rgb(0x000000);
+        public static readonly Color Background = Rgb(0x000000);
         public static readonly Color Surface = Rgb(0x262626);
         public static readonly Color SurfaceHigh = Rgb(0x3a3a3a);
         public static readonly Color SurfaceFocused = Rgb(0x3a3a3a);
@@ -15,13 +15,13 @@ namespace OmegaTube.Ui
         public static readonly Color CardTextFocused = Rgb(0x2a2a2a);
         public static readonly Color Accent = Rgb(0xe52d27);
         // Glorious: the page behind the rows from the second row down (the first row has the artwork backdrop).
-        public static Color PageTint = Rgb(0x0F121C);   // a dark blue-slate: #2D3452 at 49% brightness
-        public static Color Text = Rgb(0xf1f1f1);
-        public static Color TextDim = Rgb(0xaaaaaa);
+        public static readonly Color PageTint = Rgb(0x0F121C);   // a dark blue-slate: #2D3452 at 49% brightness
+        public static readonly Color Text = Rgb(0xf1f1f1);
+        public static readonly Color TextDim = Rgb(0xaaaaaa);
         public static readonly Color Scrim = new Color(0f, 0f, 0f, 0.65f);
-        public static Color Panel = Rgb(0x181818);         // settings / account cards, player panels
-        public static Color PanelLine = Rgb(0x2c2c2c);     // separators
-        public static Color TextMuted = Rgb(0x6f6f6f);
+        public static readonly Color Panel = Rgb(0x181818);         // settings / account cards, player panels
+        public static readonly Color PanelLine = Rgb(0x2c2c2c);     // separators
+        public static readonly Color TextMuted = Rgb(0x6f6f6f);
         public static readonly Color Success = Rgb(0x2ba640);
         // Grey rather than a white tint: as light as before on dark scenes, but it darkens bright ones under the icons.
         public static readonly Color GlassButton = new Color(0.24f, 0.24f, 0.24f, 0.6f);
@@ -36,38 +36,11 @@ namespace OmegaTube.Ui
         // shared widgets (panels, buttons) draw as glass instead of flat grey.
         public static bool Glorious;
 
-        // Light mode ("renk reversi", experimental): the page and panel surfaces flip, the chrome that carries
-        // white icons (rail, pills, cards' info bars) stays dark so the icons remain visible.
-        public static bool Light;
-        public static readonly Color RailBg = Rgb(0x0a0a0a);      // never flips
-        public static readonly Color OnControl = Rgb(0xf1f1f1);   // text on the dark chrome, never flips
+        // The chrome that carries white icons (rail, pills) and the cards' info bars.
+        public static readonly Color RailBg = Rgb(0x0a0a0a);
+        public static readonly Color OnControl = Rgb(0xf1f1f1);   // text on the dark chrome
         public static readonly Color CardText = Rgb(0xf1f1f1);    // card titles sit on the dark info bar
         public static readonly Color CardTextDim = Rgb(0xaaaaaa);
-
-        public static void SetLight(bool on)
-        {
-            Light = on;
-            if (on)
-            {
-                Background = Rgb(0xf2f2f3);
-                PageTint = Rgb(0xe9ebf1);
-                Panel = Rgb(0xffffff);
-                PanelLine = Rgb(0xd9d9de);
-                Text = Rgb(0x17181a);
-                TextDim = Rgb(0x55575c);
-                TextMuted = Rgb(0x8a8c92);
-            }
-            else
-            {
-                Background = Rgb(0x000000);
-                PageTint = Rgb(0x0F121C);
-                Panel = Rgb(0x181818);
-                PanelLine = Rgb(0x2c2c2c);
-                Text = Rgb(0xf1f1f1);
-                TextDim = Rgb(0xaaaaaa);
-                TextMuted = Rgb(0x6f6f6f);
-            }
-        }
 
         public const float TitleSize = 31f;
         public const float BodySize = 19f;

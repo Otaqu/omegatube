@@ -269,7 +269,7 @@ namespace OmegaTube.Data
             string language = I18n.Lang == "fr" ? "French" : I18n.Lang == "es" ? "Spanish" : "Turkish";
             string body = Json.Write(new Dictionary<string, object>
             {
-                ["model"] = string.IsNullOrEmpty(model) ? "openrouter/free" : model,
+                ["model"] = string.IsNullOrEmpty(model) ? "~anthropic/claude-haiku-latest" : model,
                 ["messages"] = new List<object>
                 {
                     new Dictionary<string, object>

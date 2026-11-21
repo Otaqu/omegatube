@@ -13,8 +13,9 @@ namespace omega::yt {
 // ytps5-sponsorblock src/yt/watch.cpp (C) 2026 SponsorBlock for PS5 contributors, GPL-3.0-or-later,
 // which follows yt-dlp's _mark_watched and SmartTube.
 //
-// Runs on its own thread for one playback: fetches the account's tracking URLs (TV client + Bearer),
-// sends the playback ping once, then a watch-time ping every 20 s of continuous playback.
+// Runs on its own thread for one playback: fetches the account's tracking URLs (Client::player_tracking,
+// off the playback's start path), sends the playback ping once, then a watch-time ping every 20 s of
+// continuous playback.
 // A client playback nonce (16 characters of YouTube's base64 alphabet), new for each player request.
 std::string make_cpn();
 
@@ -22,11 +23,10 @@ class WatchReporter {
 public:
     using PositionFn = std::function<int64_t()>;  // current playback position in ms (-1: not playing)
 
-    // playback / watchtime: the tracking URLs to ping (the account's, from Client::player_tracking, or the
-    // playing response's when that failed; both empty: fetched here with the TV client). cpn: the nonce of the
-    // player request those URLs came from (empty: a new one).
-    WatchReporter(std::string video_id, int64_t length_ms, std::string playback, std::string watchtime,
-                  std::string cpn, PositionFn position);
+    // fallback_playback / fallback_watchtime: the tracking URLs of the (anonymous) player response that resolved
+    // the playback, pinged when the account's cannot be had.
+    WatchReporter(std::string video_id, int64_t length_ms, std::string fallback_playback,
+                  std::string fallback_watchtime, PositionFn position);
     ~WatchReporter();
 
 private:
@@ -34,7 +34,7 @@ private:
 
     std::string video_id_;
     int64_t length_ms_;
-    std::string fallback_playback_, fallback_watchtime_, cpn_;
+    std::string fallback_playback_, fallback_watchtime_;
     PositionFn position_;
     std::atomic<bool> stop_{false};
     std::thread thread_;

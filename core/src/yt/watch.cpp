@@ -7,17 +7,15 @@
 #include <utility>
 #include <vector>
 
-#include <nlohmann/json.hpp>
-
 #include "net/http.h"
 #include "util/log.h"
 #include "util/remote_config.h"
 #include "yt/auth.h"
+#include "yt/innertube.h"
 
 namespace omega::yt {
 namespace {
 
-using json = nlohmann::json;
 using Fields = std::vector<std::pair<std::string, std::string>>;
 
 // "12.345". Not printf("%.3f"): that follows the process locale and gives "12,345" on a French TV.
@@ -75,44 +73,6 @@ bool ping(const std::string& url, const std::string& token) {
     return res.error.empty() && res.status >= 200 && res.status < 300;
 }
 
-// The account's tracking URLs: the TV client's player answer with the Bearer token (a token-less
-// client's URLs are anonymous).
-bool tracking_urls(const std::string& video_id, const std::string& token, std::string& playback,
-                   std::string& watchtime) {
-    json c = cfg::obj({"innertube", "browse"});
-    json client = c.value("context", json::object());
-    client["clientName"] = c.value("clientName", "");
-    client["clientVersion"] = c.value("clientVersion", "");
-    client["hl"] = cfg::language();
-    client["gl"] = cfg::region();
-    json body = {{"context", {{"client", client}}}, {"videoId", video_id}, {"contentCheckOk", true}, {"racyCheckOk", true}};
-    net::Request req;
-    req.method = "POST";
-    req.url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
-    req.headers = {{"Content-Type", "application/json"},
-                   {"User-Agent", c.value("userAgent", "")},
-                   {"X-YouTube-Client-Name", std::to_string(c.value("clientNameId", 7))},
-                   {"X-YouTube-Client-Version", c.value("clientVersion", "")},
-                   {"Authorization", "Bearer " + token},
-                   {"Origin", "https://www.youtube.com"}};
-    req.body = body.dump();
-    net::Response res = net::fetch(req);
-    if (!res.ok()) {
-        OLOG("history: tracking player http %d %s", res.status, res.error.c_str());
-        return false;
-    }
-    json r = json::parse(res.body, nullptr, false);
-    const json& t = r.is_object() ? r.value("playbackTracking", json::object()) : json::object();
-    playback = t.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
-    watchtime = t.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
-    if (playback.empty()) {
-        const json& ps = r.is_object() ? r.value("playabilityStatus", json::object()) : json::object();
-        OLOG("history: tracking player answer status=%s reason=%s", ps.value("status", "?").c_str(),
-             ps.value("reason", "").c_str());
-    }
-    return !playback.empty();
-}
-
 }  // namespace
 
 std::string make_cpn() {
@@ -124,10 +84,10 @@ std::string make_cpn() {
     return out;
 }
 
-WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, std::string playback, std::string watchtime,
-                             std::string cpn, PositionFn position)
+WatchReporter::WatchReporter(std::string video_id, int64_t length_ms, std::string fallback_playback,
+                             std::string fallback_watchtime, PositionFn position)
     : video_id_(std::move(video_id)), length_ms_(length_ms),
-      fallback_playback_(std::move(playback)), fallback_watchtime_(std::move(watchtime)), cpn_(std::move(cpn)),
+      fallback_playback_(std::move(fallback_playback)), fallback_watchtime_(std::move(fallback_watchtime)),
       position_(std::move(position)) {
     thread_ = std::thread([this] { run(); });
 }
@@ -141,15 +101,24 @@ void WatchReporter::run() {
     std::string error;
     std::string token = shared_auth().access_token(error);
     if (token.empty()) return;  // signed out: nothing to report
-    std::string playback = fallback_playback_, watchtime = fallback_watchtime_;
-    if (!playback.empty()) {
-        OLOG("history: pings with %s tracking URLs", cpn_.empty() ? "the playback response's (anonymous)"
-                                                                  : "the account's");
-    } else if (!tracking_urls(video_id_, token, playback, watchtime)) {
-        OLOG("history: no tracking URLs for %s", video_id_.c_str());
+    // The playing response is anonymous (its URLs file the view under no account): ask the player endpoint
+    // again as the account, with the nonce the pings will carry. Here rather than before the playback starts:
+    // it may first load the player JS (seconds on the first video).
+    const std::string cpn = make_cpn();
+    std::string playback, watchtime, tr_error;
+    Client client;
+    if (client.player_tracking(video_id_, token, cpn, playback, watchtime, tr_error)) {
+        OLOG("history: pings with the account's tracking URLs");
+    } else if (!fallback_playback_.empty()) {
+        playback = fallback_playback_;
+        watchtime = fallback_watchtime_;
+        OLOG("history: no account tracking (%s) — pings with the playback response's (anonymous) URLs",
+             tr_error.c_str());
+    } else {
+        OLOG("history: no tracking URLs for %s (%s)", video_id_.c_str(), tr_error.c_str());
         return;
     }
-    const std::string cpn = cpn_.empty() ? make_cpn() : cpn_;
+    if (stop_) return;  // closed before the URLs came: nothing watched to report
     const std::string version = cfg::str({"innertube", "browse", "clientVersion"});
     // el=detailpage: without it YouTube files the view as a Short and it never shows in the history.
     Fields pf = {{"ver", "2"}, {"cpn", cpn}, {"cmt", "0"}, {"el", "detailpage"}};
