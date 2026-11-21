@@ -23,6 +23,9 @@ namespace OmegaTube.Ui
         {
             public string Title, Hint;
             public Func<string> Value;       // choice rows ("‹ value ›" when focused)
+            public string[] Options;         // multi-option rows: OK opens a menu with all of them
+            public Func<int> Selected;       // index of the current option
+            public Action<int> Pick;         // choose option i
             public Func<bool> Switch;        // on/off rows
             public Action<int> Change;       // ◀ ▶ (-1 / +1); switch rows flip
             public Action Activate;          // OK
@@ -52,8 +55,12 @@ namespace OmegaTube.Ui
 
         private static readonly int[] SeekSteps = { 5, 10, 15, 20, 30, 60 };
         private static readonly int[] Heights = { 720, 1080, 1440, 2160 };
-        private static readonly string[] CodecSets = { "avc1,vp9", "vp9,avc1", "avc1,vp9,av01", "av01" };
-        private static readonly string[] CodecSetLabels = { "H.264, VP9 above 1080p", "VP9 first", "H.264 / VP9 / AV1 (experimental)", "AV1 only" };
+        private static readonly int[] HeightOrder = { 2160, 1440, 1080, 720 };
+        private static readonly string[] HeightMenuLabels = { "2160p (4K)", "1440p (2K)", "1080p", "720p" };
+        private static readonly double[] SettingsScales = { 1.0, 1.15, 1.3, 1.5 };
+        private static readonly string[] SettingsScaleLabels = { "Small", "Medium", "Large", "Extra large" };
+        private static readonly string[] CodecSets = { "avc1,vp9", "vp9,avc1", "av01,vp9,avc1", "avc1,vp9,av01", "av01" };
+        private static readonly string[] CodecSetLabels = { "H.264, VP9 above 1080p", "VP9 first", "AV1 preferred (VP9 / H.264 fallback)", "H.264 / VP9 / AV1 (experimental)", "AV1 only" };
         private static readonly string[] Locales = { "fr-FR", "fr-BE", "fr-CA", "fr-CH", "en-US", "en-GB", "de-DE", "es-ES", "it-IT", "cs-CZ", "ru-RU" };
 
         private readonly List<Category> categories = new List<Category>();
@@ -75,8 +82,31 @@ namespace OmegaTube.Ui
         private readonly bool glorious;    // Glorious interface: glass cards instead of flat panels
 
         // startCategory / startRow: where to come back after a rebuild (app language or interface change).
+        private readonly float fs;   // this screen's own text scale (Settings > text size)
+        private ActionMenu choiceMenu;
+
+        private float S(float v) => v * fs;
+
+        private void CloseChoiceMenu()
+        {
+            if (choiceMenu != null)
+            {
+                Window.Instance.Remove(choiceMenu);
+                choiceMenu = null;
+            }
+        }
+
+        private static int ScaleIndex(double v)
+        {
+            int best = 0;
+            for (int i = 1; i < SettingsScales.Length; i++)
+                if (Math.Abs(SettingsScales[i] - v) < Math.Abs(SettingsScales[best] - v)) best = i;
+            return best;
+        }
+
         public SettingsScreen(App app, int startCategory = 0, int startRow = -1) : base(app)
         {
+            fs = (float)Math.Max(0.9, Math.Min(1.6, App.Config.Player.SettingsFontScale));
             glorious = Theme.Glorious;   // the one source of truth: set from the config at start-up and when it changes
             Root.BackgroundColor = glorious ? Color.Transparent : Theme.Background;   // Glorious: glass over the page
 
@@ -86,17 +116,17 @@ namespace OmegaTube.Ui
                 pane.Position = new Position(40, 40);
             }
             Root.Add(pane);
-            var title = Widgets.Label(T("Settings"), Theme.TitleSize + 12, Theme.Text, 480, 70);
+            var title = Widgets.Label(T("Settings"), S(Theme.TitleSize) + 12, Theme.Text, 480, 70);
             title.Position = new Position(80, 64);
             Root.Add(title);
-            var version = Widgets.Label("OmegaTube " + NativeCore.Version, Theme.SmallSize, Theme.TextMuted, 480);
+            var version = Widgets.Label("OmegaTube " + NativeCore.Version, S(Theme.SmallSize), Theme.TextMuted, 480);
             version.Position = new Position(82, 134);
             Root.Add(version);
 
-            paneTitle = Widgets.Label("", Theme.TitleSize + 4, Theme.Text, ListW, 60);
+            paneTitle = Widgets.Label("", S(Theme.TitleSize) + 4, Theme.Text, ListW, 60);
             paneTitle.Position = new Position(ListX, 70);
             Root.Add(paneTitle);
-            paneDescription = Widgets.Label("", Theme.BodySize, Theme.TextDim, ListW, 40);
+            paneDescription = Widgets.Label("", S(Theme.BodySize), Theme.TextDim, ListW, 40);
             paneDescription.Position = new Position(ListX, 136);
             Root.Add(paneDescription);
 
@@ -125,7 +155,7 @@ namespace OmegaTube.Ui
             preview.Hide();
             list.Add(preview);
 
-            help = Widgets.Label("", Theme.SmallSize + 1, Theme.TextDim, ListW, 40);
+            help = Widgets.Label("", S(Theme.SmallSize) + 1, Theme.TextDim, ListW, 40);
             help.Position = new Position(ListX, 1012);
             Root.Add(help);
 
@@ -173,7 +203,7 @@ namespace OmegaTube.Ui
             var img = Widgets.Icon(icon, 40);
             img.Position = new Position(28, 20);
             view.Add(img);
-            var label = Widgets.Label(title, Theme.BodySize + 4, Theme.Text, 380, 80);
+            var label = Widgets.Label(title, S(Theme.BodySize) + 4, Theme.Text, 380, 80);
             label.VerticalAlignment = VerticalAlignment.Center;
             label.Position = new Position(90, 0);
             view.Add(label);
@@ -215,7 +245,7 @@ namespace OmegaTube.Ui
             {
                 if (r.Section != null)
                 {
-                    var heading = Widgets.Label(r.Section, Theme.BodySize, Theme.Accent, ListW, SectionH);
+                    var heading = Widgets.Label(r.Section, S(Theme.BodySize), Theme.Accent, ListW, SectionH);
                     heading.VerticalAlignment = VerticalAlignment.Center;
                     heading.Position = new Position(8, y);
                     list.Add(heading);
@@ -256,13 +286,13 @@ namespace OmegaTube.Ui
                 x = 72;
             }
             bool hint = !string.IsNullOrEmpty(r.Hint);
-            r.TitleLabel = Widgets.Label(r.Title, Theme.BodySize + 4, Theme.Text, 640, hint ? 44 : RowH);
+            r.TitleLabel = Widgets.Label(r.Title, S(Theme.BodySize) + 4, Theme.Text, 640, hint ? 44 : RowH);
             r.TitleLabel.VerticalAlignment = hint ? VerticalAlignment.Bottom : VerticalAlignment.Center;
             r.TitleLabel.Position = new Position(x, hint ? 10 : 0);
             r.View.Add(r.TitleLabel);
             if (hint)
             {
-                r.HintLabel = Widgets.Label(r.Hint, Theme.SmallSize, Theme.TextDim, 680, 34);
+                r.HintLabel = Widgets.Label(r.Hint, S(Theme.SmallSize), Theme.TextDim, 680, 34);
                 r.HintLabel.Position = new Position(x, 56);
                 r.View.Add(r.HintLabel);
             }
@@ -275,7 +305,7 @@ namespace OmegaTube.Ui
             if (r.Value != null)
             {
                 int right = r.Switch != null ? ListW - 140 : ListW - 36;
-                r.ValueLabel = Widgets.Label("", Theme.BodySize + 2, Theme.TextDim, 460, RowH);
+                r.ValueLabel = Widgets.Label("", S(Theme.BodySize) + 2, Theme.TextDim, 460, RowH);
                 r.ValueLabel.HorizontalAlignment = HorizontalAlignment.End;
                 r.ValueLabel.VerticalAlignment = VerticalAlignment.Center;
                 r.ValueLabel.Position = new Position(right - 460, 0);
@@ -300,22 +330,19 @@ namespace OmegaTube.Ui
 
         private void BuildQuality(List<Row> l)
         {
-            l.Add(Choice(T("Maximum quality"), T("The best available quality up to this limit"),
-                         () => HeightLabel(P.MaxHeight), d => P.MaxHeight = Cycle(Heights, P.MaxHeight, d)));
-            l.Add(Toggle(T("4K only"), T("Only play 2160p streams (60 fps when offered); videos without 4K will not play"),
-                         () => P.MinHeight >= 2160, v =>
+            l.Add(Choice(T("Preferred quality"), T("The best available up to this height; falls back lower when it is not offered"),
+                         HeightMenuLabels, () => Math.Max(0, Array.IndexOf(HeightOrder, P.MaxHeight)),
+                         i => P.MaxHeight = HeightOrder[i]));
+            l.Add(Toggle(T("Prefer 4K"), T("2160p when offered (60 fps first), otherwise the best below"),
+                         () => P.MaxHeight >= 2160, v =>
                          {
-                             P.MinHeight = v ? 2160 : 0;
-                             if (v) P.MaxHeight = 2160;
+                             P.MaxHeight = v ? 2160 : 1080;
+                             P.MinHeight = 0;
                              App.Config.Save();
                          }));
             l.Add(Choice(T("Video codecs"), T("Above 1080p, YouTube only offers VP9 or AV1"),
-                         () => T(CodecSetLabels[Math.Max(0, Array.IndexOf(CodecSets, P.Codecs))]),
-                         d =>
-                         {
-                             int i = Array.IndexOf(CodecSets, P.Codecs);
-                             P.Codecs = CodecSets[i < 0 ? 0 : (i + d + CodecSets.Length) % CodecSets.Length];
-                         }));
+                         CodecSetLabels, () => Math.Max(0, Array.IndexOf(CodecSets, P.Codecs)),
+                         i => P.Codecs = CodecSets[i]));
         }
 
         private void BuildCaptions(List<Row> l)
@@ -325,10 +352,10 @@ namespace OmegaTube.Ui
                          d => P.CaptionLang = CycleLang(P.CaptionLang, d)));
             l.Add(Toggle(T("Auto-translate"), T("Otherwise, translate subtitles from another language"),
                          () => P.CaptionTranslate, v => P.CaptionTranslate = v));
-            l.Add(Choice(T("Text size"), null, () => T(PlayerOptions.CaptionSizeLabels[P.CaptionSize]),
-                         d => P.CaptionSize = Clamp(P.CaptionSize + d, PlayerOptions.CaptionSizes.Length)));
-            l.Add(Choice(T("Subtitle background"), null, () => T(PlayerOptions.CaptionBackgroundLabels[P.CaptionBackground]),
-                         d => P.CaptionBackground = Clamp(P.CaptionBackground + d, PlayerOptions.CaptionBackgrounds.Length)));
+            l.Add(Choice(T("Text size"), null, PlayerOptions.CaptionSizeLabels, () => P.CaptionSize,
+                         i => P.CaptionSize = i));
+            l.Add(Choice(T("Subtitle background"), null, PlayerOptions.CaptionBackgroundLabels, () => P.CaptionBackground,
+                         i => P.CaptionBackground = i));
             l.Add(Choice(T("Audio track"), T("For videos dubbed in several languages"),
                          () => P.AudioLang.Length == 0 ? T("Original") : Languages.Name(P.AudioLang),
                          d => P.AudioLang = CycleLang(P.AudioLang, d)));
@@ -342,12 +369,10 @@ namespace OmegaTube.Ui
             foreach (SponsorCategory cat in SponsorCategory.All)
             {
                 SponsorCategory c = cat;
-                Row r = Choice(T(c.Label), null, () => App.Config.SponsorBlockEnabled ? ModeLabel(App.Config.ModeForRaw(c)) : "—",
-                               d =>
-                               {
-                                   int next = ((int)App.Config.ModeForRaw(c) + d + 3) % 3;
-                                   App.Config.SkipModes[c.Id] = (SkipMode)next;
-                               });
+                Row r = Choice(T(c.Label), null,
+                               new[] { ModeLabel(SkipMode.Auto), ModeLabel(SkipMode.Manual), ModeLabel(SkipMode.Off) },
+                               () => (int)App.Config.ModeForRaw(c),
+                               i => App.Config.SkipModes[c.Id] = (SkipMode)i);
                 r.Dot = c.Color;
                 r.Section = first ? T("Categories") : null;
                 first = false;
@@ -393,6 +418,13 @@ namespace OmegaTube.Ui
                              App.Config.Save();
                              App.Home?.InvalidateRows();
                          }));
+            l.Add(Choice(T("Settings text size"), T("Text size of this screen only"), SettingsScaleLabels,
+                         () => ScaleIndex(App.Config.Player.SettingsFontScale),
+                         i =>
+                         {
+                             App.Config.Player.SettingsFontScale = SettingsScales[i];
+                             relabel = true;
+                         }));
             if (App.Config.UiStyle == "glorious")
             {
                 // Glorious options, shown right under the interface choice.
@@ -402,12 +434,10 @@ namespace OmegaTube.Ui
                 l.Add(Toggle(T("Card animated previews"), T("Animates the other cards with a short preview after a short rest"),
                              () => App.Config.CardPreview, v => App.Config.CardPreview = v));
             }
-            Row appLang = Choice(T("App language"), T("Language of the app's texts"),
-                         () => I18n.Names[Math.Max(0, Array.IndexOf(I18n.Codes, App.Config.UiLanguage))],
-                         d =>
+            Row appLang = Choice(T("App language"), T("Language of the app's texts"), I18n.Names,
+                         () => Math.Max(0, Array.IndexOf(I18n.Codes, App.Config.UiLanguage)),
+                         i =>
                          {
-                             int i = Array.IndexOf(I18n.Codes, App.Config.UiLanguage);
-                             i = (Math.Max(0, i) + d + I18n.Codes.Length) % I18n.Codes.Length;
                              App.Config.UiLanguage = I18n.Codes[i];
                              I18n.Lang = App.Config.UiLanguage;
                              App.Config.RelabelDefaultRows();
@@ -529,22 +559,22 @@ namespace OmegaTube.Ui
             var card = Widgets.Rounded(Theme.Panel, 1200, 900, Theme.PanelRadius);
             card.Position = new Position(360, 90);
             scrim.Add(card);
-            var title = Widgets.Label(T("What's new in {0}", Json.Str(App.NewRelease, "version")), Theme.TitleSize, Theme.Text, 1080, 60);
+            var title = Widgets.Label(T("What's new in {0}", Json.Str(App.NewRelease, "version")), S(Theme.TitleSize), Theme.Text, 1080, 60);
             title.Position = new Position(60, 40);
             card.Add(title);
             var install = Widgets.Label(T("To install it, run the install script again or reinstall by following the README."),
-                                        Theme.SmallSize, Theme.Accent, 1080, 40);
+                                        S(Theme.SmallSize), Theme.Accent, 1080, 40);
             install.Position = new Position(60, 104);
             card.Add(install);
             var clip = new View { Position = new Position(60, 170), Size = new Size(1080, 640), ClippingMode = ClippingModeType.ClipChildren };
             card.Add(clip);
             string notes = PlainNotes(Json.Str(App.NewRelease, "notes"));
-            notesText = Widgets.Label(notes.Length > 0 ? notes : T("No release notes."), Theme.BodySize, Theme.Text, 1080, 20000);
+            notesText = Widgets.Label(notes.Length > 0 ? notes : T("No release notes."), S(Theme.BodySize), Theme.Text, 1080, 20000);
             notesText.MultiLine = true;
             notesText.Ellipsis = false;
             notesText.VerticalAlignment = VerticalAlignment.Top;
             clip.Add(notesText);
-            var hint = Widgets.Label(T("▲▼ scroll    Back close"), Theme.SmallSize, Theme.TextDim, 1080, 36);
+            var hint = Widgets.Label(T("▲▼ scroll    Back close"), S(Theme.SmallSize), Theme.TextDim, 1080, 36);
             hint.Position = new Position(60, 840);
             card.Add(hint);
             notesScroll = 0;
@@ -556,7 +586,7 @@ namespace OmegaTube.Ui
             {
                 case "Up":
                 case "Down":
-                    float height = PlayerScreen.EstimateTextHeight(notesText.Text, 1080, Theme.BodySize);
+                    float height = PlayerScreen.EstimateTextHeight(notesText.Text, 1080, S(Theme.BodySize));
                     float min = Math.Min(0, 620 - height);
                     notesScroll = Math.Max(min, Math.Min(0, notesScroll + (key == "Up" ? 300 : -300)));
                     notesText.PositionY = notesScroll;
@@ -610,6 +640,21 @@ namespace OmegaTube.Ui
         private static Row Choice(string title, string hint, Func<string> value, Action<int> change)
         {
             return new Row { Title = title, Hint = hint, Value = value, Change = change };
+        }
+
+        // A multi-option row: Left/Right move without wrapping; OK opens a menu with every option.
+        private static Row Choice(string title, string hint, string[] options, Func<int> selected, Action<int> pick)
+        {
+            return new Row
+            {
+                Title = title,
+                Hint = hint,
+                Options = options,
+                Selected = selected,
+                Pick = pick,
+                Value = () => T(options[Clamp(selected(), options.Length)]),
+                Change = d => pick(Clamp(selected() + d, options.Length)),
+            };
         }
 
         // ---------------------------------------------------------------- display
@@ -704,6 +749,11 @@ namespace OmegaTube.Ui
                 NotesKey(key);
                 return true;
             }
+            if (choiceMenu != null)
+            {
+                choiceMenu.OnKey(key);
+                return true;
+            }
             bool back = key == "XF86Back" || key == "Escape";
             if (!inRows)
             {
@@ -780,7 +830,30 @@ namespace OmegaTube.Ui
                     }
                     break;
                 case "Return":
-                    if (row.Activate != null)
+                    if (row.Options != null)
+                    {
+                        string[] opts = row.Options;
+                        var items = new List<(string Label, Action Run)>();
+                        for (int i = 0; i < opts.Length; i++)
+                        {
+                            int pick = i;
+                            items.Add((T(opts[i]), () =>
+                            {
+                                CloseChoiceMenu();
+                                row.Pick(pick);
+                                Save();
+                                if (relabel)
+                                {
+                                    App.ReplaceScreen(this, new SettingsScreen(App, category, index));
+                                    return;
+                                }
+                                Refresh();
+                            }));
+                        }
+                        choiceMenu = new ActionMenu(T(row.Title), items, CloseChoiceMenu);
+                        Window.Instance.Add(choiceMenu);
+                    }
+                    else if (row.Activate != null)
                     {
                         row.Activate();
                         Save();

@@ -37,6 +37,7 @@ namespace OmegaTube.Config
         public bool ShowStats = false;      // technical overlay (buffer, bitrate, stalls)
         public int MaxHeight = 1080;
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
+        public double SettingsFontScale = 1.3;   // the Settings screen's own text scale
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
         public string Codecs = "avc1,vp9";
         public bool Autoplay = true;        // at the end of a video, play the first suggestion (after a countdown)
@@ -278,6 +279,7 @@ namespace OmegaTube.Config
                 Player.ShowStats = Json.Bool(p, "showStats", Player.ShowStats);
                 Player.MaxHeight = (int)Json.Num(p, "maxHeight", Player.MaxHeight);
                 Player.MinHeight = (int)Json.Num(p, "minHeight", Player.MinHeight);
+                Player.SettingsFontScale = Json.Num(p, "settingsFontScale", Player.SettingsFontScale);
                 Player.Codecs = Json.Str(p, "codecs", Player.Codecs);
                 Player.Autoplay = Json.Bool(p, "autoplay", Player.Autoplay);
                 Player.CaptionLang = Json.Str(p, "captionLang", Player.CaptionLang);
@@ -327,6 +329,7 @@ namespace OmegaTube.Config
                     ["showStats"] = Player.ShowStats,
                     ["maxHeight"] = Player.MaxHeight,
                     ["minHeight"] = Player.MinHeight,
+                    ["settingsFontScale"] = Player.SettingsFontScale,
                     ["codecs"] = Player.Codecs,
                     ["autoplay"] = Player.Autoplay,
                     ["captionLang"] = Player.CaptionLang,

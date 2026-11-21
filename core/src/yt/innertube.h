@@ -134,6 +134,10 @@ public:
     // HTTP headers the googlevideo stream requests must carry (same User-Agent as the player request).
     net::Headers stream_headers() const;
 
+    // The playback-tracking URLs of a signed-in player answer, through the same client that played the video
+    // (its URLs are tied to the account; the TV client's answer has none: UNPLAYABLE "page needs to be reloaded").
+    bool player_tracking(const std::string& video_id, const std::string& client_name, const std::string& token,
+                         std::string& playback, std::string& watchtime, std::string& error);
     // Video search (WEB client). Pass the previous Feed::continuation to get the next page.
     bool search(const std::string& query, const std::string& continuation, Feed& out, std::string& error);
     // The videos after video_id in a playlist or mix (WEB "next" endpoint with playlistId). A mix is endless:

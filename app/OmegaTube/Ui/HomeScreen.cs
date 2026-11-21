@@ -869,11 +869,11 @@ namespace OmegaTube.Ui
                 {
                     lastUp = DateTime.MinValue;
                     var pl = App.Config.Player;
-                    bool on = pl.MinHeight < 2160;
-                    pl.MinHeight = on ? 2160 : 0;
-                    if (on) pl.MaxHeight = 2160;
+                    bool on = pl.MaxHeight < 2160;
+                    pl.MaxHeight = on ? 2160 : 1080;
+                    pl.MinHeight = 0;
                     App.Config.Save();
-                    App.Toast(on ? T("4K only on (2160p, 60 fps when offered)") : T("4K only off"));
+                    App.Toast(on ? T("Prefer 4K on (2160p, 60 fps first)") : T("Prefer 4K off (up to 1080p)"));
                 }
                 else
                 {

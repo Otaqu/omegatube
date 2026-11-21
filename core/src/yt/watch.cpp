@@ -139,15 +139,10 @@ void WatchReporter::run() {
     std::string error;
     std::string token = shared_auth().access_token(error);
     if (token.empty()) return;  // signed out: nothing to report
-    std::string playback, watchtime;
-    if (!tracking_urls(video_id_, token, playback, watchtime)) {
-        // The TV client's answer carried none; the playback player response's URLs usually do (a token-less
-        // client's URLs are anonymous, but the pings still go to www.youtube.com with the Bearer token).
-        playback = fallback_playback_;
-        watchtime = fallback_watchtime_;
-        OLOG("history: TV tracking player gave none, using the playback response's URLs (%s)",
-             playback.empty() ? "also empty" : "ok");
-        if (playback.empty()) return;
+    std::string playback = fallback_playback_, watchtime = fallback_watchtime_;
+    if (playback.empty() && !tracking_urls(video_id_, token, playback, watchtime)) {
+        OLOG("history: no tracking URLs for %s", video_id_.c_str());
+        return;
     }
     const std::string cpn = make_cpn();
     const std::string version = cfg::str({"innertube", "browse", "clientVersion"});

@@ -156,8 +156,21 @@ omega_player* start_youtube(void* window, int width, int height, omega::yt::Clie
     }
     if (omega::yt::shared_auth().signed_in() && !info.is_live) {
         omega::Player* player = &p->impl;
+        std::string tr_playback = info.tracking_playback, tr_watchtime = info.tracking_watchtime;
+        {
+            std::string auth_error;
+            if (omega::yt::shared_auth().signed_in()) {
+                std::string token = omega::yt::shared_auth().access_token(auth_error);
+                std::string playback, watchtime, tr_error;
+                if (client.player_tracking(id, info.client, token, playback, watchtime, tr_error)) {
+                    tr_playback = playback;
+                    tr_watchtime = watchtime;
+                    OLOG("history: account tracking URLs via %s", info.client.c_str());
+                }
+            }
+        }
         p->history = std::make_unique<omega::yt::WatchReporter>(id, info.length_s * 1000,
-                                                                info.tracking_playback, info.tracking_watchtime, [player] {
+                                                                tr_playback, tr_watchtime, [player] {
             omega::PlayerStats s = player->stats();
             return s.state == 3 ? s.position_ms : int64_t(-1);  // only while PLAYING
         });
