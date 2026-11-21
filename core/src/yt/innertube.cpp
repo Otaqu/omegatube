@@ -606,6 +606,9 @@ bool Client::player_with(const json& c, const std::string& video_id, VideoInfo& 
     out.channel_id = details.value("channelId", "");
     out.views = details.value("viewCount", "");
     parse_captions(r.value("captions", json::object()), out);
+    const json& tracking = r.value("playbackTracking", json::object());
+    out.tracking_playback = tracking.value("videostatsPlaybackUrl", json::object()).value("baseUrl", "");
+    out.tracking_watchtime = tracking.value("videostatsWatchtimeUrl", json::object()).value("baseUrl", "");
     out.formats.clear();
     out.user_agent = def.user_agent;
     size_t failed = 0;

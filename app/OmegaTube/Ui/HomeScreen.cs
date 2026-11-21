@@ -836,13 +836,14 @@ namespace OmegaTube.Ui
             }
             else if (key == "Up" && Feed != null && Feed.FocusedRow == 0)
             {
-                // Two quick Ups on the top row: refresh the feed.
+                // Two quick Ups on the top row: toggle the 4K cap. The feed is left alone (no refresh).
                 if ((DateTime.Now - lastUp).TotalMilliseconds < 800)
                 {
                     lastUp = DateTime.MinValue;
-                    loadedAt.Clear();
-                    Feed.Refresh();
-                    App.Toast(T("Refreshing…"));
+                    var pl = App.Config.Player;
+                    pl.MaxHeight = pl.MaxHeight >= 2160 ? 1080 : 2160;
+                    App.Config.Save();
+                    App.Toast(pl.MaxHeight >= 2160 ? T("4K on (up to 2160p)") : T("4K off (up to 1080p)"));
                 }
                 else
                 {

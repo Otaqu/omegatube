@@ -87,6 +87,8 @@ struct VideoInfo {
     std::vector<CaptionTrack> captions;
     // Languages a translatable caption track can be machine-translated to: (code, name).
     std::vector<std::pair<std::string, std::string>> translations;
+    // Playback-tracking beacon URLs (s.youtube.com/api/stats/...): what makes a watch land in the account's history.
+    std::string tracking_playback, tracking_watchtime;
 };
 
 struct VideoDetails {

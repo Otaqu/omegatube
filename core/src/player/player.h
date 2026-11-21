@@ -36,6 +36,8 @@ struct PlayerConfig {
     int64_t max_queue_ms = 30000;   // demuxed read-ahead per stream (network side)
     size_t max_queue_bytes = 48u << 20;  // ...and its memory cap (4K VP9 runs at 20-40 Mb/s)
     int64_t feed_ahead_ms = 15000;  // how far ahead of the playback clock we submit to ESPlayer
+    // Watch-history beacons (empty: skip). The token, when signed in, ties the beacons to the account.
+    std::string tracking_playback, tracking_watchtime, tracking_token;
 };
 
 struct PlayerStats {
@@ -142,6 +144,8 @@ private:
     std::atomic<int64_t> seek_t0_ns_{0};
     std::atomic<int64_t> last_seek_ms_{0};
     std::atomic<bool> seek_fragment_log_{false};
+    std::string cpn_;             // playback session id for the watch-history beacons
+    int64_t last_beacon_ms_ = 0;  // ms since started_at_ of the last watchtime beacon
     int64_t seek_stop_ms_{0}, seek_esp_ms_{0}, seek_frag_ms_{0};   // seek phase breakdown
     std::mutex refresh_mutex_;
     Clock::time_point last_refresh_{};
