@@ -142,6 +142,7 @@ private:
     std::atomic<int64_t> seek_t0_ns_{0};
     std::atomic<int64_t> last_seek_ms_{0};
     std::atomic<bool> seek_fragment_log_{false};
+    int64_t seek_stop_ms_{0}, seek_esp_ms_{0}, seek_frag_ms_{0};   // seek phase breakdown
     std::mutex refresh_mutex_;
     Clock::time_point last_refresh_{};
     Clock::time_point started_at_;

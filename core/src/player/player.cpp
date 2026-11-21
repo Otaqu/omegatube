@@ -311,7 +311,8 @@ bool Player::seek(int64_t ms) {
     bool use[] = {cfg_.use_video, cfg_.use_audio};
     for (int i = 0; i < 2; ++i)
         if (use[i]) stop_track(*tracks[i]);
-    OLOG("seek: tracks stopped in %lld ms", static_cast<long long>(ms_since(t0)));
+    seek_stop_ms_ = ms_since(t0);
+    OLOG("seek: tracks stopped in %lld ms", static_cast<long long>(seek_stop_ms_));
 
     for (Track* t : tracks) t->ready_to_feed = false;
     feed_from_ms_ = target;
@@ -325,7 +326,8 @@ bool Player::seek(int64_t ms) {
     position_ms_ = target;
     stall_grace_until_ms_ = ms_since(started_at_) + 3000;
     int rc = api_->seek(handle_, static_cast<uint64_t>(target));
-    OLOG("seek: esp seek returned in %lld ms (rc %d)", static_cast<long long>(ms_since(t0)), rc);
+    seek_esp_ms_ = ms_since(t0);
+    OLOG("seek: esp seek returned in %lld ms (rc %d)", static_cast<long long>(seek_esp_ms_), rc);
     // Field log: seek_done only fired after ~5 s, because ESPlayer waits for data at the new position and we used to
     // hold the feed until seek_done (a circular wait). Feed right away; the player buffers/drops what it cannot use
     // and starts as soon as its flush completes.
@@ -400,8 +402,8 @@ void Player::demux_loop(Track& t, media::Demuxer* reader_raw, net::StreamSource*
         const bool got = reader->read_fragment(fragment);
         if (got && seek_fragment_log_.exchange(false)) {
             int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
-            OLOG("seek: first fragment (%s) in %lld ms", stream_name(t.type),
-                 static_cast<long long>((now_ns - seek_t0_ns_.load()) / 1000000));
+            seek_frag_ms_ = (now_ns - seek_t0_ns_.load()) / 1000000;
+            OLOG("seek: first fragment (%s) in %lld ms", stream_name(t.type), static_cast<long long>(seek_frag_ms_));
         }
         if (!got) {
             OLOG("%s demux: end at byte %llu/%lld (%s%s%s)", stream_name(t.type),
@@ -469,7 +471,9 @@ void Player::feed_loop(Track& t) {
         if (seek_log_pending_.exchange(false)) {
             int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
             last_seek_ms_ = (now_ns - seek_t0_ns_.load()) / 1000000;
-            OLOG("seek: packets flowing again after %lld ms", static_cast<long long>(last_seek_ms_.load()));
+            OLOG("seek: packets flowing again after %lld ms (stop=%lld esp=%lld firstfrag=%lld)",
+                 static_cast<long long>(last_seek_ms_.load()), static_cast<long long>(seek_stop_ms_),
+                 static_cast<long long>(seek_esp_ms_), static_cast<long long>(seek_frag_ms_));
         }
     }
 }
