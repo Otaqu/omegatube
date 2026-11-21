@@ -326,6 +326,10 @@ bool Player::seek(int64_t ms) {
     stall_grace_until_ms_ = ms_since(started_at_) + 3000;
     int rc = api_->seek(handle_, static_cast<uint64_t>(target));
     OLOG("seek: esp seek returned in %lld ms (rc %d)", static_cast<long long>(ms_since(t0)), rc);
+    // Field log: seek_done only fired after ~5 s, because ESPlayer waits for data at the new position and we used to
+    // hold the feed until seek_done (a circular wait). Feed right away; the player buffers/drops what it cannot use
+    // and starts as soon as its flush completes.
+    for (Track* t : tracks) t->ready_to_feed = true;
     // A seek starts with an empty buffer. Hold playback (the same hold as a stall) until both tracks have data, so it
     // starts smoothly instead of stuttering a moment later. What was fed before the seek says nothing about now.
     video_.submitted_ms = target;
@@ -620,9 +624,15 @@ void Player::on_buffer_status(esp::StreamType type, esp::BufferStatus status, vo
             std::lock_guard<std::mutex> lock(t.mutex);
             queued = t.queued_ms;
         }
-        OLOG("%s buffer underrun: position=%lld submitted=%lld (lead %lld ms) demux queue=%lld ms", stream_name(type),
-             static_cast<long long>(p->position_ms_.load()), static_cast<long long>(t.submitted_ms.load()),
-             static_cast<long long>(t.submitted_ms - p->position_ms_), static_cast<long long>(queued));
+        static int64_t last_underrun_log[2] = {0, 0};
+        const int idx = type == esp::STREAM_VIDEO ? 0 : 1;
+        const int64_t now = ms_since(p->started_at_);
+        if (now - last_underrun_log[idx] >= 500) {
+            last_underrun_log[idx] = now;
+            OLOG("%s buffer underrun: position=%lld submitted=%lld (lead %lld ms) demux queue=%lld ms", stream_name(type),
+                 static_cast<long long>(p->position_ms_.load()), static_cast<long long>(t.submitted_ms.load()),
+                 static_cast<long long>(t.submitted_ms - p->position_ms_), static_cast<long long>(queued));
+        }
     }
 }
 
