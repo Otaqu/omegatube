@@ -230,6 +230,7 @@ namespace OmegaTube.Ui
 
             public PillButton(string text, string iconName, int width, int height = 76)
             {
+                // the label sits on the dark chrome pill in both themes
                 Size = new Size(width, height);
                 Round(this, height / 2f);
                 if (Theme.Glorious)
@@ -246,7 +247,7 @@ namespace OmegaTube.Ui
                     Add(icon);
                     x = 80;
                 }
-                label = Label(text, Theme.BodySize + 2, Theme.Text, width - x - 24, height);
+                label = Label(text, Theme.BodySize + 2, Theme.OnControl, width - x - 24, height);
                 label.VerticalAlignment = VerticalAlignment.Center;
                 label.Position = new Position(x, 0);
                 if (Theme.Glorious && iconName == null)

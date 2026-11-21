@@ -38,6 +38,8 @@ namespace OmegaTube.Config
         public int MaxHeight = 2160;   // fixed: best up to 4K, 60 fps first, AV1 > VP9 > H.264
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
         public double SettingsFontScale = 1.0;   // the Settings screen's own text scale (1.0 = the app-wide size)
+        public bool LightMode = false;           // experimental light palette
+        public bool DeArrow = true;              // crowdsourced titles from sponsor.ajay.app (cached)
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
         public string Codecs = "av01,vp9,avc1";
         public bool Autoplay = true;        // at the end of a video, play the first suggestion (after a countdown)
@@ -284,6 +286,8 @@ namespace OmegaTube.Config
                 Player.MinHeight = 0;
                 Player.Codecs = "av01,vp9,avc1";
                 Player.SettingsFontScale = Json.Num(p, "settingsFontScale", Player.SettingsFontScale);
+                Player.LightMode = Json.Bool(p, "lightMode", Player.LightMode);
+                Player.DeArrow = Json.Bool(p, "dearrow", Player.DeArrow);
                 Player.Codecs = Json.Str(p, "codecs", Player.Codecs);
                 Player.Autoplay = Json.Bool(p, "autoplay", Player.Autoplay);
                 Player.CaptionLang = Json.Str(p, "captionLang", Player.CaptionLang);
@@ -334,6 +338,8 @@ namespace OmegaTube.Config
                     ["maxHeight"] = Player.MaxHeight,
                     ["minHeight"] = Player.MinHeight,
                     ["settingsFontScale"] = Player.SettingsFontScale,
+                    ["lightMode"] = Player.LightMode,
+                    ["dearrow"] = Player.DeArrow,
                     ["codecs"] = Player.Codecs,
                     ["autoplay"] = Player.Autoplay,
                     ["captionLang"] = Player.CaptionLang,

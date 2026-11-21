@@ -451,7 +451,7 @@ namespace OmegaTube.Ui
             else
             {
                 int cx = Glorious ? Theme.GloriousInset - 30 : ContentX;   // the folded nav leaves the left edge free
-                var grid = new FeedGrid(1920 - cx, 1080 - gridTop) { Position = new Position(cx, gridTop) };
+                var grid = new FeedGrid(1920 - cx, 1080 - gridTop, 3) { Position = new Position(cx, gridTop) };
                 if (s.Key == "home")
                 {
                     grid.More = id => YouTube.Related(id);   // YouTube's home pages end: keep going with related

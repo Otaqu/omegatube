@@ -17,7 +17,7 @@ namespace OmegaTube.Ui
     // as a horizontally scrolling row; Up from the first grid row enters it, Down leaves it.
     public class FeedGrid : View, IFeedView
     {
-        private const int Columns = 6;
+        private readonly int Columns;   // per grid: 6 for lists of results, 3 for the big home cards
         public static bool ListMode;   // Settings: rows instead of thumbnail cards
         private const int GapX = 34, GapY = 20;
         private const int Pad = Theme.FocusMargin;   // room for the focused card's scale-up
@@ -58,11 +58,12 @@ namespace OmegaTube.Ui
         private TextLabel emptyMessage;
         private readonly int width;
 
-        public FeedGrid(int width, int height)
+        public FeedGrid(int width, int height, int cols = 6)
         {
             pump = BuildNext;
             this.width = width;
             this.height = height;
+            Columns = Math.Max(1, cols);
             Size = new Size(width, height);
             ClippingMode = ClippingModeType.ClipChildren;
             columns = ListMode ? 1 : Columns;
@@ -94,6 +95,7 @@ namespace OmegaTube.Ui
             gridHeading.Text = T("All videos");
             ClearCards();
             focus = 0;
+            viewTopRow = 0;
             continuation = "";
             fresh = false;
             loading = false;
@@ -563,6 +565,8 @@ namespace OmegaTube.Ui
             ScrollToFocus();
         }
 
+        private int viewTopRow;   // first row of the current page (paged scrolling)
+
         private void ScrollToFocus()
         {
             if (highlights.Count > 0)
@@ -578,9 +582,23 @@ namespace OmegaTube.Ui
                 return;
             }
             int row = focus / Columns;
-            // The first row keeps the highlights in view; further rows sit second from the top.
-            int focusY = gridTop + row * rowStep;
-            scroll = Widgets.Slide(content, 0, Pad - (row == 0 ? 0 : Math.Max(0, focusY - rowStep)), scroll);
+            // Paged scrolling: the view stays still while the focus walks the visible rows, then moves one page
+            // (the focus lands on the last visible row) instead of following every step.
+            float avail = height - gridTop - Pad;
+            int rowsFit = Math.Max(1, (int)(avail / rowStep));
+            if (row == 0)
+            {
+                viewTopRow = 0;
+            }
+            else if (row < viewTopRow)
+            {
+                viewTopRow = row;
+            }
+            else if (row >= viewTopRow + rowsFit)
+            {
+                viewTopRow = row - rowsFit + 1;
+            }
+            scroll = Widgets.Slide(content, 0, Pad - viewTopRow * rowStep, scroll);
             UpdateVisibleRows();
         }
 

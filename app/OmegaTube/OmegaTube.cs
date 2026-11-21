@@ -50,6 +50,9 @@ namespace OmegaTube
                 BugReport.CoreLoaded = true;
                 LocalStore.Init(DirectoryInfo.Data);
                 ThumbCache.Init(DirectoryInfo.Data);
+                DeArrow.Init(DirectoryInfo.Data);
+                Ui.Theme.SetLight(Config.Player.LightMode);
+                Ui.Card.DeArrowOn = Config.Player.DeArrow;
                 NativeCore.SetLocale(Config.Language, Config.Region);
                 EcoreWindow = GetEcoreWindow(window);
                 Home = new HomeScreen(this);

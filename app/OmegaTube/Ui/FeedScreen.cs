@@ -27,16 +27,21 @@ namespace OmegaTube.Ui
 
         public override bool OnKey(string key)
         {
-            if (grid.Move(key))
-            {
-                return true;
-            }
             if (key == "XF86Back" || key == "Escape")
             {
                 App.Pop();
                 return true;
             }
-            return false;
+            if (key == "Return")
+            {
+                if (grid.FocusedItem != null)
+                {
+                    App.Play(grid.FocusedItem);
+                }
+                return true;
+            }
+            grid.Move(key);
+            return true;
         }
     }
 }

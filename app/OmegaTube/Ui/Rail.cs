@@ -84,7 +84,7 @@ namespace OmegaTube.Ui
             }
             else
             {
-                panel = new View { Size = new Size(Theme.RailWidth, 1080), BackgroundColor = Theme.Background };
+                panel = new View { Size = new Size(Theme.RailWidth, 1080), BackgroundColor = Theme.RailBg };
                 Add(panel);
                 // Omega: the top-left profile avatar (falls back to a person icon when signed out / no photo).
                 // Focusable: the home screen moves focus here from the top rail entry, and OK cycles accounts.
@@ -223,7 +223,7 @@ namespace OmegaTube.Ui
             {
                 Widgets.SetVisible(l, false);
             }
-            panel.BackgroundColor = Theme.Background;
+            panel.BackgroundColor = Theme.RailBg;
             Refresh();
         }
 

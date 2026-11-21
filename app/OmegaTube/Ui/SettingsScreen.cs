@@ -418,6 +418,20 @@ namespace OmegaTube.Ui
                              App.Config.Save();
                              App.Home?.InvalidateRows();
                          }));
+            l.Add(Toggle(T("Light mode"), T("Experimental: light page and panels (restart the app to apply everywhere)"),
+                         () => App.Config.Player.LightMode, v =>
+                         {
+                             App.Config.Player.LightMode = v;
+                             Theme.SetLight(v);
+                             App.Config.Save();
+                         }));
+            l.Add(Toggle(T("DeArrow titles"), T("Crowdsourced titles and de-clickbait from sponsor.ajay.app (cached on disk)"),
+                         () => App.Config.Player.DeArrow, v =>
+                         {
+                             App.Config.Player.DeArrow = v;
+                             Card.DeArrowOn = v;
+                             App.Config.Save();
+                         }));
             l.Add(Choice(T("Settings text size"), T("Text size of this screen only"), SettingsScaleLabels,
                          () => ScaleIndex(App.Config.Player.SettingsFontScale),
                          i =>

@@ -47,6 +47,20 @@ namespace OmegaTube.Util
             }
         }
 
+        // The feed URLs carry a size token; ask for the biggest still (maxres, up to 1920x1080).
+        public static string Hq(string url)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                return url;
+            }
+            return url.Replace("/hqdefault.", "/maxresdefault.")
+                      .Replace("/mqdefault.", "/maxresdefault.")
+                      .Replace("/sddefault.", "/maxresdefault.")
+                      .Replace("/hq720.", "/maxresdefault.")
+                      .Replace("/default.", "/maxresdefault.");
+        }
+
         // Local path when cached; otherwise starts a background download and returns null.
         public static string Get(string url)
         {

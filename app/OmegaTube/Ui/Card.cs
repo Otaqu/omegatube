@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using OmegaTube.Data;
 using OmegaTube.Util;
 using Tizen.NUI;
@@ -147,11 +148,12 @@ namespace OmegaTube.Ui
                 int titleW = width - 2 * InfoInset - 2 * TitlePad;
                 titleClip = new View { Position = new Position(TitlePad, 6), Size = new Size(titleW, 26),
                                        ClippingMode = ClippingModeType.ClipChildren };
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, titleW, 26);
+                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.CardText, titleW, 26);
+                ApplyDeArrow(title);
                 titleClip.Add(title);
                 info.Add(titleClip);
                 // Channel, views and age on one line under the card.
-                meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.TextDim, width - 12);
+                meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.CardTextDim, width - 12);
                 meta.Position = new Position(6, thumbH + 10);
                 meta.Opacity = 0f;
                 meta.Hide();
@@ -163,12 +165,13 @@ namespace OmegaTube.Ui
             }
             else if (!thumbOnly)
             {
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text, width - 24, 50);
+                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.CardText, width - 24, 50);
+                ApplyDeArrow(title);
                 title.MultiLine = true;
                 title.Position = new Position(12, 2);
                 info.Add(title);
 
-                meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.TextDim, width - 24);
+                meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.CardTextDim, width - 24);
                 meta.Position = new Position(12, 52);
                 info.Add(meta);
                 ApplyFocusColors();
@@ -177,9 +180,10 @@ namespace OmegaTube.Ui
             if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
                 // Disk-cached thumbnails load instantly; a miss paints the plain URL and upgrades when the
-                // background download (ThumbCache) lands.
-                string cached = ThumbCache.Get(Item.Thumbnail);
-                Widgets.MaskedImage(thumb, cached ?? Item.Thumbnail, Theme.Image("round_mask"));
+                // background download (ThumbCache) lands. Ask for the 1080p still when the video has one.
+                string hq = ThumbCache.Hq(Item.Thumbnail);
+                string cached = ThumbCache.Get(hq);
+                Widgets.MaskedImage(thumb, cached ?? hq, Theme.Image("round_mask"));
                 if (cached == null && subscribedThumb != Item.Thumbnail)
                 {
                     if (subscribedThumb != null)
@@ -190,6 +194,27 @@ namespace OmegaTube.Ui
                     ThumbCache.Ready += OnThumbReady;
                 }
             }
+        }
+
+        // DeArrow on/off (mirrors the config; set at startup and from the Settings toggle).
+        public static bool DeArrowOn = true;
+
+        // DeArrow: swap in the crowdsourced title when there is one (cached after the first look).
+        private void ApplyDeArrow(TextLabel label)
+        {
+            if (!DeArrowOn || label == null || string.IsNullOrEmpty(Item.Id))
+            {
+                return;
+            }
+            string id = Item.Id;
+            Task.Run(() =>
+            {
+                string t = DeArrow.Title(id);
+                if (t != null)
+                {
+                    UiGuard.Post(() => { label.Text = t; });
+                }
+            });
         }
 
         // The same video in a fresher page (network after cache): keeps the card and its loaded thumbnail.
@@ -210,13 +235,57 @@ namespace OmegaTube.Ui
             string line = item.Channel;
             if (!string.IsNullOrEmpty(item.Views))
             {
-                line += " • " + item.Views;
+                line += " • " + CompactViews(item.Views);
             }
             if (!string.IsNullOrEmpty(item.Published))
             {
-                line += " • " + item.Published;
+                line += " • " + CompactAge(item.Published);
             }
             return line;
+        }
+
+        // "571K views" / "571 B görüntüleme" -> "571k"; "1.2M" -> "1.2M".
+        private static string CompactViews(string v)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(v, @"^([\d.,]+)\s*([A-Za-zÇĞİÖŞÜçğıöşü]{0,3})");
+            if (!m.Success)
+            {
+                return v;
+            }
+            string num = m.Groups[1].Value;
+            string u = m.Groups[2].Value.ToLowerInvariant();
+            string unit = "";
+            if (u.Length > 0)
+            {
+                if (u[0] == 'b') unit = "k";        // bin / B
+                else if (u[0] == 'k') unit = "k";
+                else if (u[0] == 'm' || u[0] == 'g') unit = "M";   // milyon / Mn / M
+            }
+            return num + unit;
+        }
+
+        // "2 months ago" / "2 ay önce" -> "2ay"; "3 weeks ago" -> "3hf".
+        private static string CompactAge(string p)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(p, @"^(\d+)\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)");
+            if (!m.Success)
+            {
+                return p;
+            }
+            string u = m.Groups[2].Value.ToLowerInvariant();
+            string shortUnit;
+            if (u.StartsWith("s")) shortUnit = u.StartsWith("sn") ? "sn" : "s";          // seconds / saniye / s
+            else if (u.StartsWith("d") && u.StartsWith("dk")) shortUnit = "dk";
+            else if (u.StartsWith("m") && u.StartsWith("mo")) shortUnit = "mo";
+            else if (u.StartsWith("m")) shortUnit = "dk";                                 // minute / dakika
+            else if (u.StartsWith("h") && u.StartsWith("hf")) shortUnit = "hf";
+            else if (u.StartsWith("h")) shortUnit = "sa";                                 // hour / saat
+            else if (u.StartsWith("g")) shortUnit = "g";                                  // gün
+            else if (u.StartsWith("w")) shortUnit = "hf";
+            else if (u.StartsWith("a")) shortUnit = "ay";                                 // ay
+            else if (u.StartsWith("y") || u.StartsWith("yıl")) shortUnit = "yıl";
+            else shortUnit = u.Substring(0, Math.Min(2, u.Length));
+            return m.Groups[1].Value + shortUnit;
         }
 
         public void UpdateProgress()
@@ -302,7 +371,7 @@ namespace OmegaTube.Ui
             if (marquee == null)
             {
                 // Measured once, on first focus: the same title at its natural width.
-                TextLabel m = Widgets.Label(Item.Title, Theme.BodySize, Theme.Text);
+                TextLabel m = Widgets.Label(Item.Title, Theme.BodySize, Theme.CardText);
                 titleClip.Add(m);
                 float overflow = 0f;
                 try
