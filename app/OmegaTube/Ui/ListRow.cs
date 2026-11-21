@@ -36,11 +36,11 @@ namespace OmegaTube.Ui
                 return;
             }
             Filled = true;
-            title = Widgets.Label(Item.Title ?? "", Theme.BodySize + 1, Theme.Text, width - 700, RowHeight);
+            title = Widgets.Label(Item.Title ?? "", Theme.CardTitleSize, Theme.Text, width - 700, RowHeight);
             title.Position = new Position(24, 0);
             title.VerticalAlignment = VerticalAlignment.Center;
             Add(title);
-            meta = Widgets.Label(Meta(), Theme.SmallSize + 1, Theme.TextDim, 560, RowHeight);
+            meta = Widgets.Label(Meta(), Theme.CardMetaSize, Theme.TextDim, 560, RowHeight);
             meta.Position = new Position(width - 660, 0);
             meta.VerticalAlignment = VerticalAlignment.Center;
             Add(meta);

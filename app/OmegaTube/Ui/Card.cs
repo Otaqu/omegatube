@@ -146,9 +146,9 @@ namespace OmegaTube.Ui
             {
                 // The title: one line with an ellipsis (a longer one scrolls while the card is focused).
                 int titleW = width - 2 * InfoInset - 2 * TitlePad;
-                titleClip = new View { Position = new Position(TitlePad, 6), Size = new Size(titleW, 26),
+                titleClip = new View { Position = new Position(TitlePad, 6), Size = new Size(titleW, 30),
                                        ClippingMode = ClippingModeType.ClipChildren };
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.CardText, titleW, 26);
+                title = Widgets.Label(Item.Title, Theme.CardTitleSize, Theme.CardText, titleW, 30);
                 ApplyDeArrow(title);
                 titleClip.Add(title);
                 info.Add(titleClip);
@@ -165,14 +165,14 @@ namespace OmegaTube.Ui
             }
             else if (!thumbOnly)
             {
-                title = Widgets.Label(Item.Title, Theme.BodySize, Theme.CardText, width - 24, 50);
+                title = Widgets.Label(Item.Title, Theme.CardTitleSize, Theme.CardText, width - 24, 60);
                 ApplyDeArrow(title);
                 title.MultiLine = true;
                 title.Position = new Position(12, 2);
                 info.Add(title);
 
-                meta = Widgets.Label(MetaLine(Item), Theme.SmallSize, Theme.CardTextDim, width - 24);
-                meta.Position = new Position(12, 52);
+                meta = Widgets.Label(MetaLine(Item), Theme.CardMetaSize, Theme.CardTextDim, width - 24);
+                meta.Position = new Position(12, 62);
                 info.Add(meta);
                 ApplyFocusColors();
             }

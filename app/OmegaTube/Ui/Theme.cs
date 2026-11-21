@@ -50,7 +50,9 @@ namespace OmegaTube.Ui
         public const int RailExpandedWidth = 330;  // focused: icons + labels
         public const int CardWidth = 268;
         public const int CardGap = 16;
-        public const int CardInfoHeight = 74;      // title (2 lines) + channel line
+        public const int CardInfoHeight = 86;      // title (2 lines) + channel line
+        public const float CardTitleSize = BodySize + 3;   // 22: the cards are big now, no need for tiny text
+        public const float CardMetaSize = SmallSize + 2;   // 17
         public const int CardRadius = 14;          // soft corners (no sharp edges)
         public const float FocusScale = 1.1f;
         public const int FocusMargin = 30;         // room for the focused card's scale-up
