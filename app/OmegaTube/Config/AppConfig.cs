@@ -36,6 +36,7 @@ namespace OmegaTube.Config
         public bool ShowClock = true;       // wall clock in the control bar
         public bool ShowStats = false;      // technical overlay (buffer, bitrate, stalls)
         public int MaxHeight = 2160;   // fixed: best up to 4K, 60 fps first, AV1 > VP9 > H.264
+        public bool ResumePlayback = true;   // continue where the video left off
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
         public bool DeArrow = true;              // crowdsourced titles from sponsor.ajay.app (cached)
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
@@ -280,6 +281,7 @@ namespace OmegaTube.Config
                 Player.ShowClock = Json.Bool(p, "showClock", Player.ShowClock);
                 Player.ShowStats = Json.Bool(p, "showStats", Player.ShowStats);
                 Player.MaxHeight = (int)Json.Num(p, "maxHeight", Player.MaxHeight);
+                Player.ResumePlayback = Json.Bool(p, "resumePlayback", Player.ResumePlayback);
                 Player.MinHeight = (int)Json.Num(p, "minHeight", Player.MinHeight);
                 // Quality is fixed by design: best up to 2160p, 60 fps first, AV1 > VP9 > H.264.
                 Player.MaxHeight = 2160;
@@ -334,6 +336,7 @@ namespace OmegaTube.Config
                     ["showClock"] = Player.ShowClock,
                     ["showStats"] = Player.ShowStats,
                     ["maxHeight"] = Player.MaxHeight,
+                    ["resumePlayback"] = Player.ResumePlayback,
                     ["minHeight"] = Player.MinHeight,
                     ["dearrow"] = Player.DeArrow,
                     ["codecs"] = Player.Codecs,

@@ -217,6 +217,9 @@ namespace OmegaTube
             ["Report a new version at startup"] = "Açılışta yeni sürümü bildir",
             ["Report a problem"] = "Sorun bildir",
             ["Restart"] = "Yeniden başlat",
+            ["Resume playback"] = "Kaldığı yerden devam",
+            ["Continue where the video left off (local and account progress)"] = "Videoyu bıraktığınız yerden sürdürür (yerel ve hesap ilerlemesi)",
+
             ["Results for “{0}”"] = "“{0}” için sonuçlar",
             ["Resuming at {0}"] = "{0} konumundan devam ediliyor",
             ["Retry"] = "Yeniden dene",

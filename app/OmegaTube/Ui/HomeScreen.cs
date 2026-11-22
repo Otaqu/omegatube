@@ -243,7 +243,7 @@ namespace OmegaTube.Ui
                 new Section
                 {
                     Key = "home", Title = T("Home"), Icon = "home", CacheKey = "home-shelves",
-                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => YouTube.Home(c)) : null,
+                    Loader = signedIn ? (Func<string, Task<FeedPage>>)(c => HomeFeed(c)) : null,
                     EmptyText = T("Sign in to your account (Account menu) to see your recommendations, or use Search and the menu sections."),
                 },
                 new Section { Key = "search", Title = T("Search"), Icon = "search", Embed = () => new SearchScreen(App) },
@@ -266,6 +266,14 @@ namespace OmegaTube.Ui
             list.Add(new Section { Key = "account", Title = T("Account"), Icon = "set_account", Embed = () => new AccountScreen(App) });
             list.Add(new Section { Key = "settings", Title = T("Settings"), Icon = "settings", Embed = () => new SettingsScreen(App) });
             return list;
+        }
+
+        // Home without mixes: only single videos (the music-mix cards clutter the feed).
+        private static async Task<FeedPage> HomeFeed(string continuation)
+        {
+            FeedPage page = await YouTube.Home(continuation);
+            page?.Items?.RemoveAll(i => i.Kind == "mix");
+            return page;
         }
 
         // Returns false when the sections are unchanged (nothing rebuilt).

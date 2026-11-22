@@ -570,6 +570,10 @@ namespace OmegaTube.Ui
         // it on the card (watched on another device); nearly finished or barely started videos start over.
         internal static long ResumePoint(VideoItem v)
         {
+            if (!App.Config.Player.ResumePlayback)
+            {
+                return 0;   // resuming turned off: always start from the beginning
+            }
             long local = LocalStore.ResumePosition(v.Id);
             if (LocalStore.Progress(v.Id) >= 0.99)
             {
