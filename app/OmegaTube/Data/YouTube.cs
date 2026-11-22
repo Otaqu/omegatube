@@ -233,7 +233,9 @@ namespace OmegaTube.Data
         });
 
         // A transcript summary through OpenRouter (model "openrouter/free" routes to free models only).
-        public static async Task<(string Text, string Error)> Summarize(string videoId, string key, string model)
+        public static async Task<(string Text, string Error)> Summarize(string videoId, string key, string model,
+                                                                        string title = null, string channel = null,
+                                                                        string duration = null)
         {
             CaptionList caps = await CaptionTracks(videoId);
             if (caps.Error != null)
@@ -272,6 +274,24 @@ namespace OmegaTube.Data
                             : I18n.Lang == "cs" ? "Czech"
                             : I18n.Lang == "ru" ? "Russian"
                             : "English";
+            var context = new StringBuilder();
+            if (!string.IsNullOrEmpty(title))
+            {
+                context.Append("Title: ").Append(title).Append('\n');
+            }
+            if (!string.IsNullOrEmpty(channel))
+            {
+                context.Append("Channel: ").Append(channel).Append('\n');
+            }
+            if (!string.IsNullOrEmpty(duration))
+            {
+                context.Append("Duration: ").Append(duration).Append('\n');
+            }
+            if (context.Length > 0)
+            {
+                context.Append('\n');
+            }
+            context.Append(sb);
             string body = Json.Write(new Dictionary<string, object>
             {
                 ["model"] = string.IsNullOrEmpty(model) ? "xiaomi/mimo-v2.6-flash" : model,
@@ -280,9 +300,10 @@ namespace OmegaTube.Data
                     new Dictionary<string, object>
                     {
                         ["role"] = "system",
-                        ["content"] = "You summarize video transcripts. Answer with 5-8 short bullet points in " + language + ". No preamble.",
+                        ["content"] = "You summarize video transcripts. Write one compact paragraph of 3-5 sentences in " + language +
+                                      " that captures the whole video. Do not walk through the video line by line, do not rephrase every statement, and leave out minor details. No preamble.",
                     },
-                    new Dictionary<string, object> { ["role"] = "user", ["content"] = sb.ToString() },
+                    new Dictionary<string, object> { ["role"] = "user", ["content"] = context.ToString() },
                 },
             });
             using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(90) })

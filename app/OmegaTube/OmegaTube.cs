@@ -426,7 +426,8 @@ namespace OmegaTube
             Window.Instance.Add(summaryDialog);
             UiGuard.Fire("summary", async () =>
             {
-                (string text, string error) = await YouTube.Summarize(item.Id, Config.SummaryKey, Config.SummaryModel);
+                (string text, string error) = await YouTube.Summarize(item.Id, Config.SummaryKey, Config.SummaryModel,
+                                                                        item.Title, item.Channel, item.Duration);
                 summaryDialog?.Show(text, error);
             });
         }
