@@ -9,7 +9,7 @@ namespace OmegaTube.Ui
 {
     // A plain feed page: a title over a card grid, fed by any loader (used for Subscriptions and History
     // inside the Library). Back leaves.
-    public class FeedScreen : Screen
+    public class FeedScreen : Screen, IHoldActions
     {
         private const int GridTop = 150;
         private readonly FeedGrid grid;
@@ -23,6 +23,17 @@ namespace OmegaTube.Ui
             grid = new FeedGrid(1920 - 60, 1080 - GridTop) { Position = new Position(30, GridTop) };
             Root.Add(grid);
             grid.Show(loader, null, T("No videos"));
+        }
+
+        // IHoldActions: OK on a card opens the actions menu.
+        public VideoItem FocusedItem => grid.FocusedItem;
+
+        public void ShowActionsForFocused()
+        {
+            if (grid.FocusedItem != null)
+            {
+                App.ShowActions(grid.FocusedItem);
+            }
         }
 
         public override bool OnKey(string key)

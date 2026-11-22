@@ -9,7 +9,7 @@ namespace OmegaTube.Ui
 {
     // On-screen keyboard in the app language's layout (QWERTY, AZERTY, Spanish QWERTY with ñ), with a second
     // page of accents and symbols, + live suggestions + one row of results.
-    public class SearchScreen : Screen
+    public class SearchScreen : Screen, IHoldActions
     {
         // Four rows of ten characters per layout; the action row comes below.
         internal static readonly string[][] Qwerty =
@@ -161,6 +161,17 @@ namespace OmegaTube.Ui
             }
             addButton.BackgroundColor = zone == Zone.AddButton ? Theme.Accent : Theme.Surface;
             results?.SetFocused(zone == Zone.Results);
+        }
+
+        // IHoldActions: OK on a result opens the actions menu.
+        public VideoItem FocusedItem => results.FocusedItem;
+
+        public void ShowActionsForFocused()
+        {
+            if (results.FocusedItem != null)
+            {
+                App.ShowActions(results.FocusedItem);
+            }
         }
 
         public override bool OnKey(string key)

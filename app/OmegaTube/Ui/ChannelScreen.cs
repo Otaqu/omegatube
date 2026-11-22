@@ -9,7 +9,7 @@ namespace OmegaTube.Ui
 {
     // A channel: header (avatar, name, subscribers, subscribe button) above a grid of its videos, newest first.
     // Up from the grid's first row reaches the subscribe button.
-    public class ChannelScreen : Screen
+    public class ChannelScreen : Screen, IHoldActions
     {
         private const int GridTop = 210;
 
@@ -119,6 +119,17 @@ namespace OmegaTube.Ui
         public override void OnShow()
         {
             grid.RefreshProgress();
+        }
+
+        // IHoldActions: OK on a card opens the actions menu (on the subscribe button it stays a button).
+        public VideoItem FocusedItem => onButton ? null : grid.FocusedItem;
+
+        public void ShowActionsForFocused()
+        {
+            if (grid.FocusedItem != null)
+            {
+                App.ShowActions(grid.FocusedItem);
+            }
         }
 
         public override bool OnKey(string key)

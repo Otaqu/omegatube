@@ -43,7 +43,7 @@ namespace OmegaTube.Ui
             public TextLabel Label;
             public bool Active;      // subscribed / liked / disliked
         }
-        private enum Action { Restart, Rewind, PlayPause, Forward, Next, Skip, Captions, Audio, Speed, Quality, Loop, Stats }
+        private enum Action { Restart, Rewind, PlayPause, Forward, Next, Skip, Captions, Audio, Speed, Quality, Loop, Stats, Summarize }
 
         private class Button
         {
@@ -275,6 +275,7 @@ namespace OmegaTube.Ui
             AddButton(Action.Next, "skip_next", ref x);
             // Right group, right to left.
             AddRightButton(Action.Stats, "stats");
+            AddRightButton(Action.Summarize, "view_list");
             AddRightButton(Action.Loop, "repeat");
             AddRightButton(Action.Quality, "quality");
             AddRightButton(Action.Speed, "speed");
@@ -1856,6 +1857,9 @@ namespace OmegaTube.Ui
                 case Action.Stats:
                     Widgets.SetVisible(statsLabel, !statsLabel.Visibility);
                     UpdateIndicators();
+                    break;
+                case Action.Summarize:
+                    App.Summarize(item);
                     break;
             }
         }
