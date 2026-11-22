@@ -218,6 +218,7 @@ namespace OmegaTube
             ["Report a problem"] = "Sorun bildir",
             ["Restart"] = "Yeniden başlat",
             ["Resume playback"] = "Kaldığı yerden devam",
+            ["Bar marker only"] = "Yalnız çubukta işaret",
             ["Continue where the video left off (local and account progress)"] = "Videoyu bıraktığınız yerden sürdürür (yerel ve hesap ilerlemesi)",
 
             ["Results for “{0}”"] = "“{0}” için sonuçlar",

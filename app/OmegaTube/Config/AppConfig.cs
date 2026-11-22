@@ -56,7 +56,7 @@ namespace OmegaTube.Config
         public static readonly string[] CaptionBackgroundLabels = { "None (outline)", "Light", "Dark", "Opaque" };
     }
 
-    public enum SkipMode { Auto, Manual, Off }
+    public enum SkipMode { Auto, Manual, Off, Markers }   // Markers: coloured marks on the bar, no button, no auto-skip
 
     // Languages offered for subtitles / dubbed audio (French names), by ISO 639-1 code.
     public static class Languages
@@ -174,7 +174,7 @@ namespace OmegaTube.Config
             }
         }
 
-        public SkipMode ModeForRaw(SponsorCategory c) => SkipModes.TryGetValue(c.Id, out SkipMode m) ? m : SkipMode.Manual;
+        public SkipMode ModeForRaw(SponsorCategory c) => SkipModes.TryGetValue(c.Id, out SkipMode m) ? m : SkipMode.Markers;
 
         // English keys of the default sections: title, search query, icon.
         private static readonly string[][] Defaults =

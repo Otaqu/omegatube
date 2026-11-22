@@ -875,7 +875,9 @@ namespace OmegaTube.Ui
         }
 
         private static string ModeLabel(SkipMode m) =>
-            m == SkipMode.Auto ? T("Skip automatically") : m == SkipMode.Manual ? T("“Skip” button") : T("Do nothing");
+            m == SkipMode.Auto ? T("Skip automatically")
+                : m == SkipMode.Manual ? T("“Skip” button")
+                : m == SkipMode.Markers ? T("Bar marker only") : T("Do nothing");
 
         private static string HeightLabel(int h) => h == 2160 ? "2160p (4K)" : h == 1440 ? "1440p (2K)" : h + "p";
 

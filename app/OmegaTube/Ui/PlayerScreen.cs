@@ -1398,7 +1398,7 @@ namespace OmegaTube.Ui
                 SkipTo(current);
                 Toast(T("{0} skipped", label));
             }
-            else if (offered != current && focus != Focus.Panel)
+            else if (App.Config.ModeFor(current.Category) == SkipMode.Manual && offered != current && focus != Focus.Panel)
             {
                 // Controls up: the focus jumps to "Skip"; otherwise the pill floats alone over the video.
                 offered = current;
