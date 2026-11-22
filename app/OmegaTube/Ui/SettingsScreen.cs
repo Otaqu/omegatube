@@ -155,8 +155,9 @@ namespace OmegaTube.Ui
 
             AddCategory(T("Player"), "play", T("Controls and behaviour during playback"), BuildPlayer);
             // Video quality is fixed now (2160p, 60 fps first, AV1 > VP9 > H.264): no category.
+            AddCategory(T("SponsorBlock"), "skip_segment", T("Segments reported by the community (sponsor.ajay.app)"), BuildSponsorBlock);
+            AddCategory(T("DeArrow"), "check", T("Crowdsourced titles and video frames (sponsor.ajay.app)"), BuildDeArrow);
             AddCategory(T("Subtitles and audio"), "subtitles", T("Languages and appearance of subtitles"), BuildCaptions, true);
-            // SponsorBlock is hidden: the skip modes stay manual (a "Skip" button when a segment plays).
             AddCategory(T("Menu"), "view_list", T("Sidebar sections (add some from Search)"), BuildMenu);
             AddCategory(T("General"), "language", T("App language, content language and updates"), BuildGeneral);
             AddCategory(T("AI summary"), "info_outline", T("A transcript summary in the card menu, through OpenRouter"), BuildSummary);
@@ -373,7 +374,7 @@ namespace OmegaTube.Ui
             {
                 SponsorCategory c = cat;
                 Row r = Choice(T(c.Label), null,
-                               new[] { ModeLabel(SkipMode.Auto), ModeLabel(SkipMode.Manual), ModeLabel(SkipMode.Off) },
+                               new[] { ModeLabel(SkipMode.Auto), ModeLabel(SkipMode.Manual), ModeLabel(SkipMode.Off), ModeLabel(SkipMode.Markers) },
                                () => (int)App.Config.ModeForRaw(c),
                                i => App.Config.SkipModes[c.Id] = (SkipMode)i);
                 r.Dot = c.Color;
@@ -381,6 +382,20 @@ namespace OmegaTube.Ui
                 first = false;
                 l.Add(r);
             }
+        }
+
+        // DeArrow as one switch: titles and thumbnail frames go on and off together.
+        private void BuildDeArrow(List<Row> l)
+        {
+            l.Add(Toggle("DeArrow", T("Crowdsourced titles and video frames from sponsor.ajay.app (cached on disk; YouTube's stay the fallback)"),
+                         () => App.Config.Player.DeArrow || App.Config.Player.DeArrowThumbs, v =>
+                         {
+                             App.Config.Player.DeArrow = v;
+                             App.Config.Player.DeArrowThumbs = v;
+                             Card.DeArrowOn = v;
+                             Card.DeArrowThumbsOn = v;
+                             App.Config.Save();
+                         }));
         }
 
         private void BuildMenu(List<Row> l)
@@ -420,20 +435,6 @@ namespace OmegaTube.Ui
                              FeedGrid.ListMode = v;
                              App.Config.Save();
                              App.Home?.InvalidateRows();
-                         }));
-            l.Add(Toggle(T("DeArrow titles"), T("Crowdsourced titles and de-clickbait from sponsor.ajay.app (cached on disk)"),
-                         () => App.Config.Player.DeArrow, v =>
-                         {
-                             App.Config.Player.DeArrow = v;
-                             Card.DeArrowOn = v;
-                             App.Config.Save();
-                         }));
-            l.Add(Toggle(T("DeArrow thumbnails"), T("Video frames from dearrow-thumb.ajay.app instead of the bait thumbnail (cached; YouTube's stays the fallback)"),
-                         () => App.Config.Player.DeArrowThumbs, v =>
-                         {
-                             App.Config.Player.DeArrowThumbs = v;
-                             Card.DeArrowThumbsOn = v;
-                             App.Config.Save();
                          }));
             if (App.Config.UiStyle == "glorious")
             {

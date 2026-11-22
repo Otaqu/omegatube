@@ -93,14 +93,14 @@ namespace OmegaTube.Config
 
         public static readonly SponsorCategory[] All =
         {
-            new SponsorCategory { Id = "sponsor", Label = "Sponsor", Color = new Tizen.NUI.Color(0f, 0.83f, 0f, 1f), DefaultMode = SkipMode.Auto },
-            new SponsorCategory { Id = "selfpromo", Label = "Self-promotion", Color = new Tizen.NUI.Color(1f, 1f, 0f, 1f), DefaultMode = SkipMode.Auto },
-            new SponsorCategory { Id = "interaction", Label = "Interaction reminder", Color = new Tizen.NUI.Color(0.8f, 0f, 1f, 1f), DefaultMode = SkipMode.Auto },
-            new SponsorCategory { Id = "intro", Label = "Intro", Color = new Tizen.NUI.Color(0f, 1f, 1f, 1f), DefaultMode = SkipMode.Manual },
-            new SponsorCategory { Id = "outro", Label = "Endcards / credits", Color = new Tizen.NUI.Color(0.01f, 0.01f, 0.93f, 1f), DefaultMode = SkipMode.Manual },
-            new SponsorCategory { Id = "preview", Label = "Preview / recap", Color = new Tizen.NUI.Color(0f, 0.56f, 0.84f, 1f), DefaultMode = SkipMode.Manual },
-            new SponsorCategory { Id = "filler", Label = "Filler / tangent", Color = new Tizen.NUI.Color(0.45f, 0f, 1f, 1f), DefaultMode = SkipMode.Manual },
-            new SponsorCategory { Id = "music_offtopic", Label = "Non-music section", Color = new Tizen.NUI.Color(1f, 0.6f, 0f, 1f), DefaultMode = SkipMode.Off },
+            new SponsorCategory { Id = "sponsor", Label = "Sponsor", Color = new Tizen.NUI.Color(0f, 0.83f, 0f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "selfpromo", Label = "Self-promotion", Color = new Tizen.NUI.Color(1f, 1f, 0f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "interaction", Label = "Interaction reminder", Color = new Tizen.NUI.Color(0.8f, 0f, 1f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "intro", Label = "Intro", Color = new Tizen.NUI.Color(0f, 1f, 1f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "outro", Label = "Endcards / credits", Color = new Tizen.NUI.Color(0.01f, 0.01f, 0.93f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "preview", Label = "Preview / recap", Color = new Tizen.NUI.Color(0f, 0.56f, 0.84f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "filler", Label = "Filler / tangent", Color = new Tizen.NUI.Color(0.45f, 0f, 1f, 1f), DefaultMode = SkipMode.Markers },
+            new SponsorCategory { Id = "music_offtopic", Label = "Non-music section", Color = new Tizen.NUI.Color(1f, 0.6f, 0f, 1f), DefaultMode = SkipMode.Markers },
         };
 
         public static SponsorCategory Find(string id) => Array.Find(All, c => c.Id == id);
