@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using OmegaTube.Config;
+using OmegaTube.Data;
 using Tizen.NUI;
 using Tizen.NUI.BaseComponents;
 using static OmegaTube.I18n;
