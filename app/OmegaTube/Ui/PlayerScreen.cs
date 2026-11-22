@@ -568,9 +568,12 @@ namespace OmegaTube.Ui
 
         // Where to start: the furthest of our own saved position and the account's progress as YouTube reports
         // it on the card (watched on another device); nearly finished or barely started videos start over.
+        // Mirrors the config flag (ResumePoint is static): set at startup and from the Settings toggle.
+        public static bool ResumeOn = true;
+
         internal static long ResumePoint(VideoItem v)
         {
-            if (!App.Config.Player.ResumePlayback)
+            if (!ResumeOn)
             {
                 return 0;   // resuming turned off: always start from the beginning
             }

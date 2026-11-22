@@ -321,7 +321,7 @@ namespace OmegaTube.Ui
             l.Add(Toggle(T("Autoplay"), T("Plays the suggested video when the current one ends"),
                          () => P.Autoplay, v => P.Autoplay = v));
             l.Add(Toggle(T("Resume playback"), T("Continue where the video left off (local and account progress)"),
-                         () => P.ResumePlayback, v => P.ResumePlayback = v));
+                         () => P.ResumePlayback, v => { P.ResumePlayback = v; PlayerScreen.ResumeOn = v; }));
             l.Add(Choice(T("Skip with ◀ ▶"), T("Fast forward / rewind with the remote"),
                          () => $"{P.SeekStepSeconds} s", d => P.SeekStepSeconds = Cycle(SeekSteps, P.SeekStepSeconds, d)));
             l.Add(Choice(T("Hide controls after"), T("Delay before the playback bar disappears"),

@@ -52,6 +52,7 @@ namespace OmegaTube
                 ThumbCache.Init(DirectoryInfo.Data);
                 DeArrow.Init(DirectoryInfo.Data);
                 Ui.Card.DeArrowOn = Config.Player.DeArrow;
+                Ui.PlayerScreen.ResumeOn = Config.Player.ResumePlayback;
                 NativeCore.SetLocale(Config.Language, Config.Region);
                 EcoreWindow = GetEcoreWindow(window);
                 Home = new HomeScreen(this);
