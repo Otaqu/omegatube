@@ -39,6 +39,7 @@ namespace OmegaTube.Config
         public bool ResumePlayback = true;   // continue where the video left off
         public int MinHeight = 0;      // 4K only: hide streams below this (0 = no floor)
         public bool DeArrow = true;              // crowdsourced titles from sponsor.ajay.app (cached)
+        public bool DeArrowThumbs = true;        // video frames from dearrow-thumb.ajay.app (cached)
         // Video codec preference for the core ("avc1" H.264, "vp9", "av01" AV1). Above 1080p YouTube has no H.264.
         public string Codecs = "av01,vp9,avc1";
         public bool Autoplay = true;        // at the end of a video, play the first suggestion (after a countdown)
@@ -288,6 +289,7 @@ namespace OmegaTube.Config
                 Player.MinHeight = 0;
                 Player.Codecs = "av01,vp9,avc1";
                 Player.DeArrow = Json.Bool(p, "dearrow", Player.DeArrow);
+                Player.DeArrowThumbs = Json.Bool(p, "dearrowThumbs", Player.DeArrowThumbs);
                 Player.Codecs = Json.Str(p, "codecs", Player.Codecs);
                 Player.Autoplay = Json.Bool(p, "autoplay", Player.Autoplay);
                 Player.CaptionLang = Json.Str(p, "captionLang", Player.CaptionLang);
@@ -339,6 +341,7 @@ namespace OmegaTube.Config
                     ["resumePlayback"] = Player.ResumePlayback,
                     ["minHeight"] = Player.MinHeight,
                     ["dearrow"] = Player.DeArrow,
+                    ["dearrowThumbs"] = Player.DeArrowThumbs,
                     ["codecs"] = Player.Codecs,
                     ["autoplay"] = Player.Autoplay,
                     ["captionLang"] = Player.CaptionLang,

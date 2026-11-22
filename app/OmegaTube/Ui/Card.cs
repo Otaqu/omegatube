@@ -177,7 +177,13 @@ namespace OmegaTube.Ui
                 ApplyFocusColors();
             }
 
-            if (!string.IsNullOrEmpty(Item.Thumbnail))
+            string deThumb = DeArrowOn && DeArrowThumbsOn ? DeArrow.Thumbnail(Item.Id) : null;
+            if (deThumb != null)
+            {
+                // The crowd's frame beats the bait thumbnail; cached on disk, so it is instant next time.
+                Widgets.MaskedImage(thumb, deThumb, Theme.Image("round_mask"));
+            }
+            else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
                 // Disk-cached thumbnails load instantly; a miss paints the plain URL and upgrades when the
                 // background download (ThumbCache) lands. The feed's own size (maxres looked wrong on 4:3).
@@ -193,10 +199,35 @@ namespace OmegaTube.Ui
                     ThumbCache.Ready += OnThumbReady;
                 }
             }
+            if (DeArrowOn && DeArrowThumbsOn && deThumb == null && subscribedDeArrow != Item.Id)
+            {
+                if (subscribedDeArrow != null)
+                {
+                    DeArrow.ThumbReady -= OnDeArrowReady;
+                }
+                subscribedDeArrow = Item.Id;
+                DeArrow.ThumbReady += OnDeArrowReady;
+            }
+        }
+
+        // A DeArrow frame for this card just landed: swap it in.
+        private void OnDeArrowReady(string videoId)
+        {
+            if (videoId != subscribedDeArrow)
+            {
+                return;
+            }
+            string path = DeArrow.Thumbnail(videoId);
+            if (path != null)
+            {
+                UiGuard.Post(() => Widgets.MaskedImage(thumb, path, Theme.Image("round_mask")));
+            }
         }
 
         // DeArrow on/off (mirrors the config; set at startup and from the Settings toggle).
         public static bool DeArrowOn = true;
+        public static bool DeArrowThumbsOn = true;
+        private string subscribedDeArrow;
 
         // DeArrow: swap in the crowdsourced title when there is one (cached after the first look).
         private void ApplyDeArrow(TextLabel label)
@@ -552,6 +583,11 @@ namespace OmegaTube.Ui
             {
                 ThumbCache.Ready -= OnThumbReady;
                 subscribedThumb = null;
+            }
+            if (subscribedDeArrow != null)
+            {
+                DeArrow.ThumbReady -= OnDeArrowReady;
+                subscribedDeArrow = null;
             }
             if (type == DisposeTypes.Explicit)
             {

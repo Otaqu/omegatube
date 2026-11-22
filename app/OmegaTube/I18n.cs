@@ -94,6 +94,8 @@ namespace OmegaTube
             ["Credits"] = "Katkıda bulunanlar",
             ["Crowdsourced titles and de-clickbait from sponsor.ajay.app (cached on disk)"] = "sponsor.ajay.app'ten kitle kaynaklı başlıklar ve clickbait temizliği (diskte önbelleklenir)",
             ["DeArrow titles"] = "DeArrow başlıkları",
+            ["DeArrow thumbnails"] = "DeArrow küçük resimleri",
+            ["Video frames from dearrow-thumb.ajay.app instead of the bait thumbnail (cached; YouTube's stays the fallback)"] = "Clickbait küçük resim yerine videodan kare (dearrow-thumb.ajay.app, önbellekli; olmazsa YouTube'un ki kalır)",
             ["default"] = "varsayılan",
             ["Delay before the playback bar disappears"] = "Oynatma çubuğu kaybolmadan önceki gecikme",
             ["Delete"] = "Sil",

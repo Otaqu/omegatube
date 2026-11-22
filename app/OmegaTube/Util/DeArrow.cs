@@ -7,15 +7,19 @@ using System.Threading.Tasks;
 
 namespace OmegaTube.Util
 {
-    // DeArrow (sponsor.ajay.app): crowdsourced, de-clickbaited titles. One small GET per video id, cached as a
-    // file (empty = "use YouTube's title") so a card costs nothing after its first view.
+    // DeArrow (sponsor.ajay.app): crowdsourced, de-clickbaited titles and video frames. One small branding GET
+    // per video id (cached as a JSON file), then the DeArrow thumbnail service for the frame. Everything is
+    // cached on disk, so a card costs nothing after its first view. Any failure just leaves YouTube's data.
     public static class DeArrow
     {
+        public static event Action<string> ThumbReady;   // a video id's DeArrow frame just landed on disk
+
         private static string dir;
-        private static readonly HttpClient http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        private static readonly HttpClient http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
         private static readonly SemaphoreSlim gate = new SemaphoreSlim(4);
-        private static readonly Dictionary<string, string> memo = new Dictionary<string, string>();
-        private static readonly HashSet<string> inflight = new HashSet<string>();
+        private static readonly Dictionary<string, (string Title, double Time)> memo = new Dictionary<string, (string, double)>();
+        private static readonly HashSet<string> inflightMeta = new HashSet<string>();
+        private static readonly HashSet<string> inflightThumb = new HashSet<string>();
 
         public static void Init(string dataDir)
         {
@@ -30,9 +34,38 @@ namespace OmegaTube.Util
             }
         }
 
-        // Custom title when the crowd prefers one; null means "use YouTube's". Returns instantly from the cache,
-        // starts a background fetch on a miss.
+        // Custom title when the crowd prefers one; null means "use YouTube's". Instant from the cache,
+        // starts a background branding fetch on a miss.
         public static string Title(string videoId)
+        {
+            (string Title, double Time)? meta = Meta(videoId);
+            return meta != null && meta.Value.Title.Length > 0 ? meta.Value.Title : null;
+        }
+
+        // Local path of the DeArrow frame (JPEG) when it is already on disk; otherwise starts the download
+        // (branding first when needed) and fires ThumbReady when it lands. Null: keep YouTube's thumbnail.
+        public static string Thumbnail(string videoId)
+        {
+            if (string.IsNullOrEmpty(videoId) || dir == null)
+            {
+                return null;
+            }
+            string jpg = Path.Combine(dir, videoId + ".jpg");
+            if (File.Exists(jpg))
+            {
+                return jpg;
+            }
+            (string Title, double Time)? meta = Meta(videoId);
+            if (meta != null && meta.Value.Time >= 0)
+            {
+                StartThumb(videoId, meta.Value.Time, jpg);
+            }
+            return null;
+        }
+
+        // ---------------------------------------------------------------- internals
+
+        private static (string Title, double Time)? Meta(string videoId)
         {
             if (string.IsNullOrEmpty(videoId) || dir == null)
             {
@@ -40,30 +73,31 @@ namespace OmegaTube.Util
             }
             lock (memo)
             {
-                if (memo.TryGetValue(videoId, out string hit))
+                if (memo.TryGetValue(videoId, out (string, double) hit))
                 {
-                    return hit.Length == 0 ? null : hit;
+                    return hit;
                 }
             }
-            string path = Path.Combine(dir, videoId + ".txt");
+            string path = Path.Combine(dir, videoId + ".json");
             try
             {
                 if (File.Exists(path))
                 {
-                    string t = File.ReadAllText(path).Trim();
+                    object root = Json.Parse(File.ReadAllText(path));
+                    var got = (Json.Str(root, "t", ""), Json.Num(root, "u", -1));
                     lock (memo)
                     {
-                        memo[videoId] = t;
+                        memo[videoId] = got;
                     }
-                    return t.Length == 0 ? null : t;
+                    return got;
                 }
             }
             catch
             {
             }
-            lock (inflight)
+            lock (inflightMeta)
             {
-                if (!inflight.Add(videoId))
+                if (!inflightMeta.Add(videoId))
                 {
                     return null;
                 }
@@ -72,12 +106,13 @@ namespace OmegaTube.Util
             {
                 await gate.WaitAsync();
                 string title = "";
+                double time = -1;
                 try
                 {
                     string body = await http.GetStringAsync(
                         "https://sponsor.ajay.app/api/branding?videoID=" + Uri.EscapeDataString(videoId));
-                    title = PickTitle(body) ?? "";
-                    File.WriteAllText(path, title);
+                    (title, time) = ParseBranding(body);
+                    File.WriteAllText(path, Json.Write(new Dictionary<string, object> { ["t"] = title, ["u"] = time }));
                 }
                 catch
                 {
@@ -85,52 +120,125 @@ namespace OmegaTube.Util
                 }
                 finally
                 {
-                    lock (inflight)
+                    lock (inflightMeta)
                     {
-                        inflight.Remove(videoId);
+                        inflightMeta.Remove(videoId);
                     }
                     gate.Release();
                 }
                 lock (memo)
                 {
-                    memo[videoId] = title;
+                    memo[videoId] = (title, time);
                 }
             });
             return null;
         }
 
         // titles[]: first entry that is not the original title and not heavily downvoted.
-        private static string PickTitle(string body)
+        // thumbnails[]: the community's frame timestamp; otherwise randomTime (DeArrow's own pick).
+        private static (string Title, double Time) ParseBranding(string body)
         {
+            string title = "";
+            double time = -1;
             try
             {
                 object root = Json.Parse(body);
                 List<object> titles = Json.Arr(root, "titles");
-                if (titles == null)
+                if (titles != null)
                 {
-                    return null;
+                    foreach (object t in titles)
+                    {
+                        if (Json.Bool(t, "original", true) || Json.Bool(t, "removed", false))
+                        {
+                            continue;
+                        }
+                        if (Json.Num(t, "votes", 0) < -1)
+                        {
+                            continue;
+                        }
+                        string s = Json.Str(t, "title", "").Trim();
+                        if (s.Length > 0)
+                        {
+                            title = s;
+                            break;
+                        }
+                    }
                 }
-                foreach (object t in titles)
+                List<object> thumbs = Json.Arr(root, "thumbnails");
+                if (thumbs != null)
                 {
-                    if (Json.Bool(t, "original", true) || Json.Bool(t, "removed", false))
+                    foreach (object t in thumbs)
                     {
-                        continue;
+                        if (Json.Bool(t, "original", false))
+                        {
+                            continue;
+                        }
+                        double ts = Json.Num(t, "timestamp", -1);
+                        if (ts >= 0)
+                        {
+                            time = ts;
+                            break;
+                        }
                     }
-                    if (Json.Num(t, "votes", 0) < -1)
+                }
+                if (time < 0)
+                {
+                    double rnd = Json.Num(root, "randomTime", -1);
+                    if (rnd > 0)
                     {
-                        continue;
-                    }
-                    string title = Json.Str(t, "title", "").Trim();
-                    if (title.Length > 0)
-                    {
-                        return title;
+                        time = rnd;
                     }
                 }
             }
             catch
             {
             }
-            return null;
+            return (title, time);
+        }
+
+        private static void StartThumb(string videoId, double time, string jpg)
+        {
+            lock (inflightThumb)
+            {
+                if (!inflightThumb.Add(videoId))
+                {
+                    return;
+                }
+            }
+            Task.Run(async () =>
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    string url = "https://dearrow-thumb.ajay.app/api/v1/getThumbnail?videoID=" +
+                                 Uri.EscapeDataString(videoId) + "&time=" +
+                                 time.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                    byte[] bytes = await http.GetByteArrayAsync(url);
+                    if (bytes.Length > 512)
+                    {
+                        File.WriteAllBytes(jpg, bytes);
+                        try
+                        {
+                            ThumbReady?.Invoke(videoId);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+                catch
+                {
+                    // not generated yet (404) or offline: the card keeps YouTube's thumbnail
+                }
+                finally
+                {
+                    lock (inflightThumb)
+                    {
+                        inflightThumb.Remove(videoId);
+                    }
+                    gate.Release();
+                }
+            });
         }
     }
 }

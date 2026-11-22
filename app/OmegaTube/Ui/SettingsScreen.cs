@@ -428,6 +428,13 @@ namespace OmegaTube.Ui
                              Card.DeArrowOn = v;
                              App.Config.Save();
                          }));
+            l.Add(Toggle(T("DeArrow thumbnails"), T("Video frames from dearrow-thumb.ajay.app instead of the bait thumbnail (cached; YouTube's stays the fallback)"),
+                         () => App.Config.Player.DeArrowThumbs, v =>
+                         {
+                             App.Config.Player.DeArrowThumbs = v;
+                             Card.DeArrowThumbsOn = v;
+                             App.Config.Save();
+                         }));
             if (App.Config.UiStyle == "glorious")
             {
                 // Glorious options, shown right under the interface choice.
